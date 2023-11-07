@@ -5,20 +5,21 @@ CONTAINER_ID=$(basename $(cat /proc/1/cpuset))
 
 
 EXISTING_NET=$(docker network ls | grep $NET_NAME)
-
+export NODE_REPLICAS=32
 
 if [ -z "$EXISTING_NET" ]; then
     echo "The network with name: '$NET_NAME' does not exist.Creating..."
     docker network create $NET_OPTIONS $NET_NAME 
     docker network connect --ip=10.0.0.2 $NET_NAME $CONTAINER_ID
 else
-     echo "The network with name: '$NET_NAME' already exists.Proceeding..."
+     echo "The network with name: '$NET_NAME' already exists. Proceeding..."
      if [[ $(docker network inspect "$NET_NAME") == *"$CONTAINER_ID"* ]]; then
         docker network connect --ip=10.0.0.2 $NET_NAME $CONTAINER_ID
      fi
      
 fi
 
+docker compose ./compose.yml up
 
 
 
