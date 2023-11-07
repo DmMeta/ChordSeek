@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+    chordNode:
+      # build:
+        # context: ./chordNode/
+        # dockerfile: Dockerfile
+      image: ubuntu:latest
+      networks: 
+        - chord
+      deploy:
+        replicas: "${NODE_REPLICAS}"
+        resources:
+          limits:
+            cpus: '0.5'
+            memory: 100m
+      entrypoint: ["/bin/bash","-c","tail","-f","/dev/null"]
+      tty: true
+
+
+networks: 
+    chord: 
+        name: chord-net
+        external: true
