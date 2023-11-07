@@ -2,9 +2,9 @@ version: "3.8"
 
 services:
     chordNode:
-      # build:
-        # context: ./chordNode/
-        # dockerfile: Dockerfile
+      build:
+         context: ../chordNode/
+         dockerfile: Dockerfile
       image: ubuntu:latest
       networks: 
         - chord
@@ -16,9 +16,14 @@ services:
             memory: 100m
       entrypoint: ["/bin/bash","-c","tail","-f","/dev/null"]
       tty: true
-
+      volumes: 
+          - ChordNodeData:/opt/chordNode
 
 networks: 
     chord: 
         name: chord-net
+        external: true
+
+volumes:
+    ChordNodeData:
         external: true

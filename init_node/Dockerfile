@@ -11,6 +11,7 @@ RUN chmod +x  ~/.docker/cli-plugins/docker-compose
 
 WORKDIR /opt/chord
 
-VOLUME ["/var/run/docker.sock","/usr/bin/docker","./"]
+
+VOLUME ["/var/run/docker.sock","/usr/bin/docker","./init_node"]
 
 ENTRYPOINT [ "/bin/bash" ]
