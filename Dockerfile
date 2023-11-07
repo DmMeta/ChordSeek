@@ -9,6 +9,8 @@ RUN curl -SL https://gist.githubusercontent.com/thaJeztah/b7950186212a49e91a8066
 
 RUN chmod +x  ~/.docker/cli-plugins/docker-compose
 
+WORKDIR /opt/chord
+COPY ./netsetup.sh .
 
 VOLUME ["/var/run/docker.sock","/usr/bin/docker"]
 
