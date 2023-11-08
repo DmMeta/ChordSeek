@@ -1,3 +1,5 @@
+#!/bin/bash
+
 NET_NAME="chord-net"
 NET_OPTIONS="--driver=bridge --subnet=10.0.0.0/25 --gateway=10.0.0.1 --ip-range=10.0.0.2/26"
 
@@ -24,6 +26,6 @@ if ! docker volume inspect $CHORD_DATA_VOLUME &> /dev/null; then
     docker volume create --name $CHORD_DATA_VOLUME
 fi
 
-docker compose up  
+docker compose -f init_node/compose.yml up -d 
 
 

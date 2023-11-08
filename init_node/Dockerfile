@@ -14,4 +14,4 @@ WORKDIR /opt/chord
 
 VOLUME ["/var/run/docker.sock","/usr/bin/docker","./init_node"]
 
-ENTRYPOINT [ "/bin/bash" ]
+ENTRYPOINT [ "./init_node/netsetup.sh" ]

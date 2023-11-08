@@ -5,7 +5,7 @@ services:
       build:
          context: ../chordNode/
          dockerfile: Dockerfile
-      image: ubuntu:latest
+      image: chord_node:v1.0
       networks: 
         - chord
       deploy:
