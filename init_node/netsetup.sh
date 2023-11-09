@@ -25,16 +25,28 @@ if ! docker volume inspect $CHORD_DATA_VOLUME &> /dev/null; then
     docker volume create --name $CHORD_DATA_VOLUME
 fi
 
-echo "Compiling code for stubs and protobuffer definitions..."
-python3 -m grpc_tools.protoc -I ./init_node/protobufs --python_out=./init_node/ChordNodeCode \
-        --grpc_python_out=./init_node/ChordNodeCode ./init_node/protobufs/chordprot.proto
-
-if [ $? -eq 0 ]; then
-    echo "Compilation was successfull!"
-else
-    echo "Compilation failed"
+if [ -z $(find ./init_node/ChordNodeCode -iname "*_pb2_*.py") ]; then
+    echo "Protobuffer and stubs are not compiled! Compiling code for stubs and protobuffer definitions..."
+    python3 -m grpc_tools.protoc -I ./init_node/protobufs --python_out=./init_node/ChordNodeCode \
+            --grpc_python_out=./init_node/ChordNodeCode ./init_node/protobufs/chordprot.proto
+    if [ $? -eq 0 ]; then
+        echo "Compilation was successfull!"
+        echo "Changing import in generated stub code for relative imports to work"
+        sed -i 's/import chordprot_pb2 as chordprot__pb2/from . import chordprot_pb2 as chordprot__pb2/' ./init_node/ChordNodeCode/chordprot_pb2_grpc.py
+    else
+        echo "Compilation failed"
+    fi
+else 
+echo "Protobuffer and stubs are already compiled! Skipping..."
 fi
 
-docker compose -f init_node/compose.yml -p chord up  
-# docker compose -p chord down --> to bring down havoc.
+if [ -z $(docker container ls -a  --format '{{.Names}}' | grep -E '^chord_chordNode') ]; then
+  echo "Nodes are non-existent. Creating and starting Nodes..." 
+  docker compose -f init_node/compose.yml -p chord up 
+else
+  echo "Clusτer was already created. Restarting Nodes..."
+  docker compose -f init_node/compose.yml -p chord start 
+fi
+
+# docker compose -p chord down --> to bring down havoc. Alternatively, use stop 
 
