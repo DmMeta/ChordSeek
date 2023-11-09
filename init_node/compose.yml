@@ -1,5 +1,4 @@
 version: "3.8"
-
 services:
     chordNode:
       build:
@@ -17,7 +16,8 @@ services:
       entrypoint: ["/bin/bash","-c","tail","-f","/dev/null"]
       tty: true
       volumes: 
-          - ChordNodeData:/opt/chordNode
+          - ChordNodeData:/opt/chordNode/Data
+          - ChordNodeCode:/opt/chordNode/
 
 networks: 
     chord: 
@@ -27,3 +27,10 @@ networks:
 volumes:
     ChordNodeData:
         external: true
+    ChordNodeCode:
+        name: ChordNodeCode
+        driver: local
+        driver_opts:
+            o: bind
+            type: none
+            device: /home/up1072498/Projects/Chord/init_node/ChordNodeCode

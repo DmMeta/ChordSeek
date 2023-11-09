@@ -17,8 +17,7 @@ else
      echo "The network with name: '$NET_NAME' already exists. Proceeding..."
      if [[ ! $(docker network inspect "$NET_NAME") == *"$CONTAINER_ID"* ]]; then
         docker network connect --ip=10.0.0.2 $NET_NAME $CONTAINER_ID
-     fi
-     
+     fi     
 fi
 
 if ! docker volume inspect $CHORD_DATA_VOLUME &> /dev/null; then
@@ -26,6 +25,6 @@ if ! docker volume inspect $CHORD_DATA_VOLUME &> /dev/null; then
     docker volume create --name $CHORD_DATA_VOLUME
 fi
 
-docker compose -f init_node/compose.yml up -d 
+docker compose -f init_node/compose.yml -p chord up  
 
 
