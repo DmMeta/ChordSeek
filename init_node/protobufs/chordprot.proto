@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+//TODO: search the import
+import "google/protobuf/empty.proto";
+
+package chordprot;
+
+message JoinRequest {
+    string node_id = 1;
+}
+
+message JoinResponse {
+    uint32 num_hops = 1;
+}
+
+message SuccessorRequest{
+    uint32 key_id = 1;
+}
+                                        
+message SuccessorResponse{
+    uint32 node_id = 1;
+    optional string ip_addr = 2;
+}
+
+message FingerUpdateRequest {
+    JoinRequest join_req = 1;
+    uint32 index = 2;
+}
+
+
+service Chord {
+    rpc join(JoinRequest) returns (JoinResponse);
+    // rpc leave(LeaveRequest) returns (LeaveResponse);
+    rpc find_successor(SuccessorRequest) returns (SuccessorResponse);
+    rpc find_predecessor(SuccessorRequest) returns (SuccessorResponse);
+    rpc closest_preceding_finger(SuccessorRequest) returns (SuccessorResponse);
+    rpc set_predecessor(SuccessorRequest) returns (google.protobuf.Empty);
+    rpc get_predecessor(google.protobuf.Empty) returns (SuccessorResponse);
+    //TODO:check paper and convert rpc method below to iterative from recursive.
+    rpc update_finger_table(FingerUpdateRequest) returns (google.protobuf.Empty);
+    
+}
+
+message DataTransferRequest {
+    string id_addr = 1;
+}
+
+
+message RangeQueryRequest {
+    uint32 max_awards = 1;
+}
+
+
+message RangeQueryResponse {
+    message CompScientistData {
+        string Surname = 1;
+        string Education = 2;
+        uint32 Awards = 3;
+    }
+    repeated CompScientistData rquerydata = 1;
+    
+}
+
+
+service DataTransfer {
+    rpc send_data(DataTransferRequest) returns (google.protobuf.Empty);
+    rpc range_query(RangeQueryRequest) returns (RangeQueryResponse);
+}
+    
+
+
+
+

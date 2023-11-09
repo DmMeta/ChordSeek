@@ -1,9 +1,9 @@
 #!/bin/bash
 
-NET_NAME="chord-net"
+export NET_NAME="chord-net"
 NET_OPTIONS="--driver=bridge --subnet=10.0.0.0/25 --gateway=10.0.0.1 --ip-range=10.0.0.2/26"
 
-CONTAINER_ID=$(basename $(cat /proc/1/cpuset))  
+export CONTAINER_ID=$(basename $(cat /proc/1/cpuset))  
 CHORD_DATA_VOLUME="ChordNodeData"
 
 EXISTING_NET=$(docker network ls | grep $NET_NAME)
@@ -25,6 +25,16 @@ if ! docker volume inspect $CHORD_DATA_VOLUME &> /dev/null; then
     docker volume create --name $CHORD_DATA_VOLUME
 fi
 
-docker compose -f init_node/compose.yml -p chord up  
+echo "Compiling code for stubs and protobuffer definitions..."
+python3 -m grpc_tools.protoc -I ./init_node/protobufs --python_out=./init_node/ChordNodeCode \
+        --grpc_python_out=./init_node/ChordNodeCode ./init_node/protobufs/chordprot.proto
 
+if [ $? -eq 0 ]; then
+    echo "Compilation was successfull!"
+else
+    echo "Compilation failed"
+fi
+
+docker compose -f init_node/compose.yml -p chord up  
+# docker compose -p chord down --> to bring down havoc.
 
