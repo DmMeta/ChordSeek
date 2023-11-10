@@ -3,6 +3,9 @@ import grpc
 import os
 import yaml
 import docker
+
+#python path is updated through netsetup.sh script so that the following
+#expression is interpreted successfully.
 from ChordNodeCode.chordprot_pb2_grpc import ChordStub
 from ChordNodeCode.chordprot_pb2 import (
     JoinRequest
@@ -16,7 +19,11 @@ from time import sleep
 with open(os.path.join('./init_node','config.yml'), 'r') as config:
     config_file = yaml.load(config, Loader = yaml.FullLoader)
 
-class ChordInitialization:   
+class ChordInitialization:  
+    '''
+    Behavior class for initializing a chord network.
+    '''
+
     def __init__(self):
         self.netname = os.environ.get(config_file['network_var'])
         self.container_id = os.environ.get(config_file['container_var'])
@@ -50,12 +57,11 @@ class ChordInitialization:
         elected_host = self.network.pop()
         print(f"Election begins...")
         sleep(1.5)
-        print(f"Elected Node for initilization: {elected_host}")
-
+        print(f"Initial elected Node: {elected_host}")
         channel = grpc.insecure_channel(elected_host[0]+":50051")
         
         client = ChordStub(channel)
-        self.hops = client.join(JoinRequest(elected_host[1]), init=True).num_hops
+        self.hops = client.join(JoinRequest(node_id = elected_host[1], init = True)).num_hops
         self.active_chord.append(elected_host)
 
         for i in range(self.nodes -1):
@@ -63,11 +69,11 @@ class ChordInitialization:
             arbitary_node = self.active_chord[randint(0,len(self.active_chord)-1)]
             elected_host = self.network.pop()
             print(f"[{i}]: Election begins...")
-            sleep(1.5)
+            sleep(0.3)
             print(f"[{i}]: Elected Node for initilization: {elected_host}")
             channel = grpc.insecure_channel(elected_host[0]+":50051")
             client = ChordStub(channel)
-            self.hops = self.hops + client.join(JoinRequest(arbitary_node)).num_hops
+            self.hops = self.hops + client.join(JoinRequest(node_id=arbitary_node[1])).num_hops
             self.active_chord.append(elected_host)
 
 
@@ -75,12 +81,17 @@ class ChordInitialization:
        
 
         
+if __name__ == "__main__":
+    chinit = ChordInitialization()
+    chinit.initialize()
+    print(f"Total hops: {chinit.hops}\nNetwork size: {len(chinit.active_chord)}")
+    for el in chinit.active_chord:
+        print(el)
 
-chinit = ChordInitialization()
 #print(chinit.netname, chinit.container_id,chinit.network,chinit.nodes)
 # print(type(chinit.network))
 # for el in chinit.network:
 #     print(el)
 
-#chinit.initialize()
+
 
