@@ -40,13 +40,19 @@ else
 echo "Protobuffer and stubs are already compiled! Skipping..."
 fi
 
-if [ -z $(docker container ls -a  --format '{{.Names}}' | grep -E '^chord_chordNode') ]; then
+if [ -z "$(docker container ls -a  --format '{{.Names}}' | grep -E '^chord_chordNode')" ]; then
   echo "Nodes are non-existent. Creating and starting Nodes..." 
   docker compose -f init_node/compose.yml -p chord up 
 else
   echo "Clusτer was already created. Restarting Nodes..."
   docker compose -f init_node/compose.yml -p chord start 
 fi
+
+while true
+do 
+echo "Init node is alive: $(date +"%T")"
+sleep 100
+done
 
 # docker compose -p chord down --> to bring down havoc. Alternatively, use stop 
 
