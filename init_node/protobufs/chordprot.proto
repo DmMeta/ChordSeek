@@ -7,6 +7,7 @@ package chordprot;
 
 message JoinRequest {
     string node_id = 1;
+    optional bool init = 2;
 }
 
 message JoinResponse {
