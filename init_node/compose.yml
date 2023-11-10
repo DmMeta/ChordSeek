@@ -13,7 +13,9 @@ services:
           limits:
             cpus: '0.5'
             memory: 100m
-      entrypoint: ["/bin/bash","-c","tail","-f","/dev/null"]
+      entrypoint: ["python3","/opt/chordNode/chordNode.py"]
+      environment:
+        - FT_SIZE=7
       tty: true
       volumes: 
           - ChordNodeData:/opt/chordNode/Data
