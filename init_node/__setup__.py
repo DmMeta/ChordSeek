@@ -61,7 +61,7 @@ class ChordInitialization:
         channel = grpc.insecure_channel(elected_host[0]+":50051")
         
         client = ChordStub(channel)
-        self.hops = client.join(JoinRequest(node_id = elected_host[1], init = True)).num_hops
+        self.hops = client.join(JoinRequest(ip_addr = elected_host[1], init = True)).num_hops
         self.active_chord.append(elected_host)
 
         for i in range(self.nodes -1):
@@ -73,7 +73,7 @@ class ChordInitialization:
             print(f"[{i}]: Elected Node for initilization: {elected_host}")
             channel = grpc.insecure_channel(elected_host[0]+":50051")
             client = ChordStub(channel)
-            self.hops = self.hops + client.join(JoinRequest(node_id=arbitary_node[1])).num_hops
+            self.hops = self.hops + client.join(JoinRequest(ip_addr=arbitary_node[1])).num_hops
             self.active_chord.append(elected_host)
 
 

@@ -6,7 +6,7 @@ import "google/protobuf/empty.proto";
 package chordprot;
 
 message JoinRequest {
-    string node_id = 1;
+    string ip_addr = 1;
     optional bool init = 2;
 }
 
@@ -28,15 +28,23 @@ message FingerUpdateRequest {
     uint32 index = 2;
 }
 
+//only for setPredecessor
+message setPredecessorRequest {
+    string ip_addr = 1;
+}
+
+
 
 service Chord {
     rpc join(JoinRequest) returns (JoinResponse);
     // rpc leave(LeaveRequest) returns (LeaveResponse);
     rpc find_successor(SuccessorRequest) returns (SuccessorResponse);
-    rpc find_predecessor(SuccessorRequest) returns (SuccessorResponse);
+
+    //rpc find_predecessor(SuccessorRequest) returns (SuccessorResponse);
     rpc closest_preceding_finger(SuccessorRequest) returns (SuccessorResponse);
-    rpc set_predecessor(SuccessorRequest) returns (google.protobuf.Empty);
+    rpc set_predecessor(setPredecessorRequest) returns (google.protobuf.Empty);
     rpc get_predecessor(google.protobuf.Empty) returns (SuccessorResponse);
+    rpc get_successor(google.protobuf.Empty) returns (SuccessorResponse);
     //TODO:check paper and convert rpc method below to iterative from recursive.
     rpc update_finger_table(FingerUpdateRequest) returns (google.protobuf.Empty);
     
