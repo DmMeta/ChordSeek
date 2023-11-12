@@ -109,9 +109,9 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
                 for i in range(len(self.FT.FT)-1):
                     basic_condition =  self.FT.FT[i+1][0] in range(self._own_key(),self.FT.FT[i][1]) 
                     #below condition checks if we rewinded in the chord network. 
-                    chord_rewind_condition_1 = self._own_key() <= self.FT.FT[i+1][0] and self.FT.FT[i+1][0] > self.FT.FT[i][1]
-                    # chord_rewind_condition_2 = successor.node_id < self._own_key() and self._own_key() > self.FT.FT[i+1][0] and successor.node_id > self.FT.FT[i+1][0]
-                    if  basic_condition or chord_rewind_condition_1: #or chord_rewind_condition_2:
+                    chord_rewind_condition_1 = self._own_key() <= self.FT.FT[i+1][0] and self.FT.FT[i+1][0] > self.FT.FT[i][1] and self._own_key() > self.FT.FT[i][1]
+                    chord_rewind_condition_2 = successor.node_id < self._own_key() and self._own_key() > self.FT.FT[i+1][0] and successor.node_id > self.FT.FT[i+1][0]
+                    if  basic_condition or chord_rewind_condition_1 or chord_rewind_condition_2:
                         self.FT.FT[i+1] = (self.FT.FT[i+1][0], self.FT.FT[i][1], self.FT.FT[i][2]) 
                     else:
                         with grpc.insecure_channel(ip_addr+":50051") as server:
