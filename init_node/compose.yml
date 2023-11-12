@@ -14,6 +14,12 @@ services:
             cpus: '0.5'
             memory: 100m
       entrypoint: ["python3","/opt/chordNode/chordNode.py"]
+        # - "watchmedo"
+        # - "shell-command"
+        # - "--patterns='*.py'"
+        # - "--recursive"
+        # - "--command='python3 /opt/chordNode/chordNode.py'"
+        # - "/opt/chordNode/"
       environment:
         - FT_SIZE=7
       tty: true
