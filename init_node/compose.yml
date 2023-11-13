@@ -13,7 +13,11 @@ services:
           limits:
             cpus: '0.5'
             memory: 100m
-      entrypoint: ["python3","/opt/chordNode/chordNode.py"]
+      entrypoint: ["watchexec","-f","chordNode.py","-c","-r", "--","python3","./chordNode.py"]
+          # - "watchexec"
+          # - "-f chordNode.py"
+          # - "-c"
+          # - " -- python3 ./chordNode.py"
         # - "watchmedo"
         # - "shell-command"
         # - "--patterns='*.py'"
