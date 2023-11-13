@@ -22,6 +22,9 @@ import os
 import logging
 import hashlib
 from itertools import chain
+# from multiprocessing import Process
+from time import sleep
+import signal
 
 class ChordNode(chordprot_pb2_grpc.ChordServicer):
     '''
@@ -62,7 +65,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
         chordprot_pb2_grpc.add_ChordServicer_to_server(self, server)
         server.add_insecure_port('[::]:50051')
         server.start()
-        print('Server started')
+        print('Server started!')
         server.wait_for_termination()
 
 
@@ -92,7 +95,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
                 self.logger.debug(f"finger[1].start : {self.FT.FT[0][0]}")
                 successor = client.find_successor(SuccessorRequest(key_id = self.FT.FT[0][0]))
                 key_id, succ_ip_addr = successor.node_id , successor.ip_addr
-                self.logger.debug(f" returned from find_successor: {key_id} -  {succ_ip_addr}")
+                self.logger.debug(f"returned from find_successor: {key_id} -  {succ_ip_addr}")
                 self.FT.FT[0] = (self.FT.FT[0][0], key_id, succ_ip_addr)
 
             self.successor = self.FT.FT[0][2] 
@@ -107,17 +110,22 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
 
                 self.logger.debug(f" Successor and predecessor were updated.")
                 for i in range(len(self.FT.FT)-1):
-                    basic_condition =  self.FT.FT[i+1][0] in range(self._own_key(),self.FT.FT[i][1]) 
-                    #below condition checks if we rewinded in the chord network. 
-                    chord_rewind_condition_1 = self._own_key() <= self.FT.FT[i+1][0] and self.FT.FT[i+1][0] > self.FT.FT[i][1] and self._own_key() > self.FT.FT[i][1]
-                    chord_rewind_condition_2 = successor.node_id < self._own_key() and self._own_key() > self.FT.FT[i+1][0] and successor.node_id > self.FT.FT[i+1][0]
-                    if  basic_condition or chord_rewind_condition_1 or chord_rewind_condition_2:
+
+                    
+                    # basic_condition =  self.FT.FT[i+1][0] in range(self._own_key(),self.FT.FT[i][1]) 
+                    # below condition checks if we rewinded in the chord network. 
+                    # chord_rewind_condition_1 = self._own_key() <= self.FT.FT[i+1][0] and self.FT.FT[i+1][0] > self.FT.FT[i][1] and self._own_key() > self.FT.FT[i][1]
+                    # chord_rewind_condition_2 = successor.node_id < self._own_key() and self._own_key() > self.FT.FT[i+1][0] and successor.node_id > self.FT.FT[i+1][0]
+                    # if  basic_condition or chord_rewind_condition_1 or chord_rewind_condition_2:
+                    
+                    if self._in_between_(self._own_key(),self.FT.FT[i][1],self.FT.FT[i+1][0]):
                         self.FT.FT[i+1] = (self.FT.FT[i+1][0], self.FT.FT[i][1], self.FT.FT[i][2]) 
                     else:
                         with grpc.insecure_channel(ip_addr+":50051") as server:
                             client = chordprot_pb2_grpc.ChordStub(server)
                             successor = client.find_successor(SuccessorRequest(key_id = self.FT.FT[i+1][0]))
                             self.FT.FT[i+1] = (self.FT.FT[i+1][0], successor.node_id, successor.ip_addr)
+
             self.logger.debug(f"Init_finger_table reached its endpoint. Success\n Finger table: \n{self.FT}")
         except grpc.RpcError as e:
                 self.logger.error(f"Error occured in init_finger_table: {e}")
@@ -125,7 +133,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
             
     def update_others(self) -> None:
         for i in range(len(self.FT.FT)):
-            self.logger.debug(f"Enters find_predecessor from update_others with key_id: {(self._own_key() - (2**i)) % (2**len(self.FT.FT))}") 
+            self.logger.debug(f" Enters find_predecessor from update_others with key_id: {(self._own_key() - (2**i)) % (2**len(self.FT.FT))}") 
             ip_addr = self.find_predecessor((self._own_key() - (2**i)) % (2**len(self.FT.FT)))
             self.logger.debug(f"Returned from find_predecessor inside update_others with : {ip_addr}") 
             server = grpc.insecure_channel(str(ip_addr)+":50051")
@@ -135,21 +143,22 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
     
     def update_finger_table(self, request, context) :
         s = self._hash_(request.join_req.ip_addr) % (2**len(self.FT.FT))
-        basic_condition =  s in range(self._own_key(), self.FT.FT[request.index][1]) 
-        #below condition checks if we rewinded in the chord network. 
-        chord_rewind_condition_1 = self._own_key() <= s and s > self.FT.FT[request.index][1] #TODO: CHECK FOR POSSIBLE 3RD CONDITION
-        chord_rewind_condition_2 = s < self._own_key() and self._own_key() > self.FT.FT[request.index][1] and s < self.FT.FT[request.index][1]
+        # basic_condition =  s in range(self._own_key(), self.FT.FT[request.index][1]) 
+        # below condition checks if we rewinded in the chord network. 
+        # chord_rewind_condition_1 = self._own_key() <= s and s > self.FT.FT[request.index][1] #TODO: CHECK FOR POSSIBLE 3RD CONDITION
+        # chord_rewind_condition_2 = s < self._own_key() and self._own_key() > self.FT.FT[request.index][1] and s < self.FT.FT[request.index][1]
 
+        # (basic_condition or chord_rewind_condition_1) and not init_condition:
         init_condition = self._own_key() == s # and not init_condition
-
-        if (basic_condition or chord_rewind_condition_1) and not init_condition:
-            self.FT.FT[request.index] = (self.FT.FT[request.index][0], s, request.join_req.ip_addr) 
-            p = self.predecessor
-            server = grpc.insecure_channel(str(p)+":50051")
-            client = chordprot_pb2_grpc.ChordStub(server)
-            join_rq = JoinRequest(ip_addr = request.join_req.ip_addr)
-            self.logger.debug(f"Recursive call to update_finger_table on node: {request.join_req.ip_addr}")
-            client.update_finger_table(FingerUpdateRequest(join_req = join_rq, index = request.index))
+        if self._in_between_(self._own_key(),self.FT.FT[request.index][1],s):
+                self.FT.FT[request.index] = (self.FT.FT[request.index][0], s, request.join_req.ip_addr) 
+                p = self.predecessor
+                server = grpc.insecure_channel(str(p)+":50051")
+                client = chordprot_pb2_grpc.ChordStub(server)
+                join_rq = JoinRequest(ip_addr = request.join_req.ip_addr)
+                self.logger.debug(f"Recursive call to update_finger_table on node: {request.join_req.ip_addr}")
+                client.update_finger_table(FingerUpdateRequest(join_req = join_rq, index = request.index))
+               
         
         return chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty()
             
@@ -169,7 +178,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
                 self.logger.debug(f"inside find_successor: {type(successor.node_id)}{successor.node_id} - {type(successor.ip_addr)}{successor.ip_addr}")
                 return SuccessorResponse(node_id = successor.node_id, ip_addr = successor.ip_addr)
         except grpc.RpcError as e:
-            self.logger.error(f"Error in find successor: {e}")
+            self.logger.error(f"Erro in find successor: {e}")
             
             
 
@@ -187,25 +196,32 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
         if successor.node_id == mirror_node[1]:
          return mirror_node[0]
 
-        basic_condition =  key_id in range(mirror_node[1]+1, successor.node_id+1) 
-        #below condition checks if we rewinded in the chord network. 
-        #if it lies outside my jurisdiction but successor is due to rewind.
-        chord_rewind_condition_1 = mirror_node[1] < key_id and successor.node_id < mirror_node[1]
-        chord_rewind_condition_2 = (successor.node_id < mirror_node[1]) and (mirror_node[1] > key_id) and (successor.node_id > key_id)
+        # basic_condition =  key_id in range(mirror_node[1]+1, successor.node_id+1) 
+        # #below condition checks if we rewinded in the chord network. 
+        # #if it lies outside my jurisdiction but successor is due to rewind.
+        # chord_rewind_condition_1 = mirror_node[1] < key_id and successor.node_id < mirror_node[1]
+        # chord_rewind_condition_2 = (successor.node_id < mirror_node[1]) and (mirror_node[1] > key_id) and (successor.node_id > key_id)
          
-        #exclude call to different rpc method if the node it refers to is itself.
-        if not (basic_condition or chord_rewind_condition_1 or chord_rewind_condition_2):
-            for i in range(len(self.FT.FT)-1,-1,-1):
-                if(self._own_key() < key_id):
-                    if self.FT.FT[i][1] in range(mirror_node[1]+1, key_id):
-                        mirror_node = (self.FT.FT[i][2], self.FT.FT[i][1])
-                        break
-                else:
-                    if(self._own_key() != key_id):
-                        if self.FT.FT[i][1] in chain(range(self._own_key()+1, (2**len(self.FT.FT))+1), range(0, key_id)):
-                            mirror_node = (self.FT.FT[i][2], self.FT.FT[i][1])
-                            break  
+        # #exclude call to different rpc method if the node it refers to is itself.
+        # if not (basic_condition or chord_rewind_condition_1 or chord_rewind_condition_2):
 
+        if not self._in_between_(mirror_node[1] + 1, successor.node_id+1, key_id):
+            for i in range(len(self.FT.FT)-1,-1,-1):
+              if self._in_between_(self._own_key() + 1, key_id, self.FT.FT[i][1]):
+                mirror_node = (self.FT.FT[i][2], self.FT.FT[i][1])
+                break
+            # for i in range(len(self.FT.FT)-1,-1,-1):
+            #     if(self._own_key() < key_id):
+            #         if self.FT.FT[i][1] in range(mirror_node[1]+1, key_id):
+            #             mirror_node = (self.FT.FT[i][2], self.FT.FT[i][1])
+            #             break
+            #     else:
+            #         if(self._own_key() != key_id):
+            #             if self.FT.FT[i][1] in chain(range(self._own_key()+1, (2**len(self.FT.FT))+1), range(0, key_id)):
+            #                 mirror_node = (self.FT.FT[i][2], self.FT.FT[i][1])
+            #                 break  
+        
+        #to evade rpc calls inside loop which may have not been needed.
         if mirror_node_copy != mirror_node:
             with grpc.insecure_channel(str(mirror_node[0])+":50051") as channel:
                     client = chordprot_pb2_grpc.ChordStub(channel)
@@ -213,12 +229,17 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
                     mirror_node = (mirror_node[0], mirror_node[1], mirror_node_resp.node_id)                        
 
 
-        while not key_id in range(mirror_node[1]+1, mirror_node[2]+1)  \
-            and not (mirror_node[1] < key_id and mirror_node[2] < mirror_node[1]) \
-            and not (mirror_node[2] < mirror_node[1] and mirror_node[1] > key_id and mirror_node[2] > key_id):
+        #old conditions prio refactoring:
+        # not key_id in range(mirror_node[1]+1, mirror_node[2]+1)  \
+        # and not (mirror_node[1] < key_id and mirror_node[2] < mirror_node[1]) \
+        # and not (mirror_node[2] < mirror_node[1] and mirror_node[1] > key_id and mirror_node[2] > key_id):
+
+
+
+        while not self._in_between_(mirror_node[1] + 1, mirror_node[2]+1,key_id):
                 server = grpc.insecure_channel(str(mirror_node[0])+":50051")
                 client = chordprot_pb2_grpc.ChordStub(server)
-                self.logger.debug(f"type of successorRequest key_id {mirror_node[1]}{type(mirror_node[1])}")
+                self.logger.debug(f"type of  successorRequest key_id {mirror_node[1]}{type(mirror_node[1])}")
                 closest_preceding_finger_res = client.closest_preceding_finger(SuccessorRequest(key_id = mirror_node[1])) 
                 with grpc.insecure_channel(str(mirror_node[0])+":50051") as channel:
                     client = chordprot_pb2_grpc.ChordStub(channel)
@@ -229,15 +250,17 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
         return mirror_node[0] 
 
     def closest_preceding_finger(self, request: SuccessorRequest, context) -> SuccessorResponse:
-        self.logger.debug(f"Enters closest_preceding_finger with SuccessorRequest: {type(request.key_id)}{request.key_id}")
+        self.logger.debug(f"Enters  closest_preceding_finger with SuccessorRequest: {type(request.key_id)}{request.key_id}")
         for i in range(len(self.FT.FT)-1,-1,-1):
-            if(self._own_key() < request.key_id):
-             if self.FT.FT[i][1] in range(self._own_key()+1, request.key_id):
-                return SuccessorResponse(node_id = self.FT.FT[i][1], ip_addr = self.FT.FT[i][2])  
-            else:
-                if(self._own_key() != request.key_id):
-                  if self.FT.FT[i][1] in chain(range(self._own_key()+1, (2**len(self.FT.FT))+1), range(0, request.key_id)):
-                   return SuccessorResponse(node_id = self.FT.FT[i][1], ip_addr = self.FT.FT[i][2]) 
+            if self._in_between_(self._own_key() + 1, request.key_id, self.FT.FT[i][1]):
+                return SuccessorResponse(node_id = self.FT.FT[i][1], ip_addr = self.FT.FT[i][2])
+            # if(self._own_key() < request.key_id):
+            #  if self.FT.FT[i][1] in range(self._own_key()+1, request.key_id):
+            #     return SuccessorResponse(node_id = self.FT.FT[i][1], ip_addr = self.FT.FT[i][2])  
+            # else:
+            #     if(self._own_key() != request.key_id):
+            #       if self.FT.FT[i][1] in chain(range(self._own_key()+1, (2**len(self.FT.FT))+1), range(0, request.key_id)):
+            #        return SuccessorResponse(node_id = self.FT.FT[i][1], ip_addr = self.FT.FT[i][2]) 
                     
         return SuccessorResponse(node_id = self._own_key(), ip_addr = self.ip_addr)
             
@@ -259,6 +282,23 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
         return chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty()
 
     
+    def _in_between_(self,node_id_lobound,node_id_upbound,key_id):
+        '''
+        _in_between_
+        =============
+        node_id_lobound: lower bound of the range that is going to be checked, our RegionOfInterest(ROI)
+        node_id_upbound: upper bound of the range that is going to be checked, our RegionOfInterest(ROI)
+        key_id: value whose range is going to be checked.
+
+        basic_condition -> if there is no rewind in chord key_id is checked if is in between node_id_lobound and node_id_upbound.
+        We also need to check if rewind occured in the network. The first check in the `rewind_condition` evaluates the possible case where
+        rewind occured. Next up, we check if key_id lies in the arc (of the chord) from the range(node_id_lobound,node_id_upbound).
+
+        '''
+        basic_condition = node_id_lobound < node_id_upbound and key_id in range(node_id_lobound,node_id_upbound) 
+        rewind_condition = node_id_lobound > node_id_upbound and key_id in chain(range(node_id_lobound, 2**(len(self.FT.FT)) + 1), range(0,node_id_upbound))
+        
+        return basic_condition or rewind_condition
 
     def _hash_(self, data) -> int:
         sha256 = hashlib.sha256()
@@ -269,12 +309,18 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
         return self._hash_(self.ip_addr) % 2**len(self.FT.FT)
 
 
+def print_fun(signum,frame):
+    print(f"{node.FT}")
+    
+#used global for debugging
+node = ChordNode()
 if __name__ == '__main__':
-    node = ChordNode()
     print(f"{'=='*5}Starting Node process {'=='*5}\nIp address: {node.ip_addr}")
     for el in node.FT.FT:
          print(el)
     print("====\n====")
+    signal.signal(signal.SIGUSR1,print_fun)
+    # printing_ft_process = Process(target = print_fun) 
     node.serve()
             
 
