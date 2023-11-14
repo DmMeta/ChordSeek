@@ -51,7 +51,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
             result = run("hostname -I", shell = True, capture_output = True, text = True)
             self.ip_addr = result.stdout.strip()
         except CalledProcessError as e:
-            print(f"Error occured: {e}")
+            print(f"Error  occured: {e}")
         self.FT = self.FingerTable(self._hash_(self.ip_addr))
 
         self.successor = ""
@@ -84,6 +84,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
             print(request.ip_addr)
             self.init_finger_table(request.ip_addr) # passing ip address
             # if  not self.ip_addr == "10.0.0.32" and not  self.ip_addr == "10.0.0.31":
+            self.logger.debug(f"Procceeding with the call to update_others!!!!!!!!!!!!")
             self.update_others()
             self.logger.debug(f"FingerTable of node after init_finger_table() {self.FT}")
             return JoinResponse(num_hops = 2)
@@ -97,7 +98,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
                 self.logger.debug(f"finger[1].start : {self.FT.FT[0][0]}")
                 successor = client.find_successor(SuccessorRequest(key_id = self.FT.FT[0][0]))
                 key_id, succ_ip_addr = successor.node_id , successor.ip_addr
-                self.logger.debug(f"returned from find_successor: {key_id} -  {succ_ip_addr}")
+                self.logger.debug(f"returned  from find_successor: {key_id} -  {succ_ip_addr}")
                 self.FT.FT[0] = (self.FT.FT[0][0], key_id, succ_ip_addr)
 
             self.successor = self.FT.FT[0][2] 
@@ -133,7 +134,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
                             successor = client.find_successor(SuccessorRequest(key_id = self.FT.FT[i+1][0]))
                             self.FT.FT[i+1] = (self.FT.FT[i+1][0], successor.node_id, successor.ip_addr)
 
-            # self.logger.debug(f"Init_finger_table reached its endpoint. Success\n Finger table: \n{self.FT}")
+            self.logger.debug(f"Init_finger_table reached its endpoint. Success\n Finger table: \n{self.FT}")
         except grpc.RpcError as e:
                 self.logger.error(f"Error occured in init_finger_table: {e}")
         
@@ -150,6 +151,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
     
     def update_finger_table(self, request, context) :
         s = self._hash_(request.join_req.ip_addr) % (2**len(self.FT.FT))
+        self.logger.debug(f"s is : {s}")
         # basic_condition =  s in range(self._own_key(), self.FT.FT[request.index][1]) 
         # below condition checks if we rewinded in the chord network. 
         # chord_rewind_condition_1 = self._own_key() <= s and s > self.FT.FT[request.index][1] #TODO: CHECK FOR POSSIBLE 3RD CONDITION
@@ -157,12 +159,10 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
 
         # (basic_condition or chord_rewind_condition_1) and not init_condition:
         init_condition = self._own_key() ==  s # and not init_condition
-
         if not init_condition:
 
-
             if self._own_key() == self.FT.FT[request.index][1]:
-                if self._in_between_(self.FT.FT[request.index][0],self.FT.FT[request.index][1],s):
+                if self._in_between_(self.FT.FT[request.index][0], self.FT.FT[request.index][1], s):
                     self.FT.FT[request.index] = (self.FT.FT[request.index][0], s, request.join_req.ip_addr) 
                     p = self.predecessor
                     server = grpc.insecure_channel(str(p)+":50051")
@@ -171,8 +171,9 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
                     self.logger.debug(f"Recursive call to update_finger_table on node: {request.join_req.ip_addr}")
                     client.update_finger_table(FingerUpdateRequest(join_req = join_rq, index = request.index))
             else :
-
-                if self._in_between_(self._own_key(),self.FT.FT[request.index][1],s):
+                self.logger.debug(f"lowerbound: {self._own_key()}, s: {s}, upperbound: {self.FT.FT[request.index][1]} index: {request.index}")
+                if self._in_between_(self._own_key(), self.FT.FT[request.index][1] + 1, s):
+                    self.logger.debug(f"update_finger_table else block inside if {s} in range ({self._own_key()},{self.FT.FT[request.index][1]})")
                     self.FT.FT[request.index] = (self.FT.FT[request.index][0], s, request.join_req.ip_addr) 
                     p = self.predecessor
                     server = grpc.insecure_channel(str(p)+":50051")
@@ -230,6 +231,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
         if not self._in_between_(mirror_node[1] + 1, successor.node_id+1, key_id):
             for i in range(len(self.FT.FT)-1,-1,-1):
               if self._in_between_(self._own_key() + 1, key_id, self.FT.FT[i][1]):
+                self.logger.debug(f"find_predecessor if block value: {self.FT.FT[i][1]}")
                 mirror_node = (self.FT.FT[i][2], self.FT.FT[i][1])
                 break
             # for i in range(len(self.FT.FT)-1,-1,-1):
@@ -244,10 +246,11 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
             #                 break  
         
         #to evade rpc calls inside loop which may have not been needed.
-        if mirror_node_copy != mirror_node:
+        if mirror_node_copy[1] != mirror_node[1]:
             with grpc.insecure_channel(str(mirror_node[0])+":50051") as channel:
                     client = chordprot_pb2_grpc.ChordStub(channel)
                     mirror_node_resp = client.get_successor(chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty()) 
+                    self.logger.debug(f"mirror_node_resp from find_predecessor: {mirror_node_resp.node_id}")
                     mirror_node = (mirror_node[0], mirror_node[1], mirror_node_resp.node_id)                        
 
 
@@ -261,9 +264,10 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
         while not self._in_between_(mirror_node[1] + 1, mirror_node[2]+1,key_id):
                 server = grpc.insecure_channel(str(mirror_node[0])+":50051")
                 client = chordprot_pb2_grpc.ChordStub(server)
-                self.logger.debug(f"type of  successorRequest key_id {mirror_node[1]}{type(mirror_node[1])}")
-                closest_preceding_finger_res = client.closest_preceding_finger(SuccessorRequest(key_id = mirror_node[1])) 
-                with grpc.insecure_channel(str(mirror_node[0])+":50051") as channel:
+                self.logger.debug(f"While block in find_predecessor with key_id: {key_id}")
+                closest_preceding_finger_res = client.closest_preceding_finger(SuccessorRequest(key_id = key_id)) 
+                self.logger.debug(f"closest_preceding_finger_res from find_predecessor: {closest_preceding_finger_res.ip_addr}")
+                with grpc.insecure_channel(str(closest_preceding_finger_res.ip_addr)+":50051") as channel:
                     client = chordprot_pb2_grpc.ChordStub(channel)
                     mirror_node_succ = client.get_successor(chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty()) 
                     mirror_node = (closest_preceding_finger_res.ip_addr, closest_preceding_finger_res.node_id, mirror_node_succ.node_id)
@@ -272,7 +276,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
         return mirror_node[0] 
 
     def closest_preceding_finger(self, request: SuccessorRequest, context) -> SuccessorResponse:
-        self.logger.debug(f"Enters  closest_preceding_finger with SuccessorRequest: {type(request.key_id)}{request.key_id}")
+        self.logger.debug(f"Enters closest_ preceding_finger with SuccessorRequest: {type(request.key_id)}{request.key_id}")
         for i in range(len(self.FT.FT)-1,-1,-1):
             if self._in_between_(self._own_key() + 1, request.key_id, self.FT.FT[i][1]):
                 return SuccessorResponse(node_id = self.FT.FT[i][1], ip_addr = self.FT.FT[i][2])
