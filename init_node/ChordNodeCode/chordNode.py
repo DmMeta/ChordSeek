@@ -83,6 +83,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
             self.logger.debug(f"Hash value of joining_node: {self._own_key()}")
             print(request.ip_addr)
             self.init_finger_table(request.ip_addr) # passing ip address
+            # if  not self.ip_addr == "10.0.0.32" and not  self.ip_addr == "10.0.0.31":
             self.update_others()
             self.logger.debug(f"FingerTable of node after init_finger_table() {self.FT}")
             return JoinResponse(num_hops = 2)
@@ -156,15 +157,30 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
 
         # (basic_condition or chord_rewind_condition_1) and not init_condition:
         init_condition = self._own_key() ==  s # and not init_condition
-        if self._in_between_(self._own_key(),self.FT.FT[request.index][1],s):
-                self.FT.FT[request.index] = (self.FT.FT[request.index][0], s, request.join_req.ip_addr) 
-                p = self.predecessor
-                server = grpc.insecure_channel(str(p)+":50051")
-                client = chordprot_pb2_grpc.ChordStub(server)
-                join_rq = JoinRequest(ip_addr = request.join_req.ip_addr)
-                self.logger.debug(f"Recursive call to update_finger_table on node: {request.join_req.ip_addr}")
-                client.update_finger_table(FingerUpdateRequest(join_req = join_rq, index = request.index))
-               
+
+        if not init_condition:
+
+
+            if self._own_key() == self.FT.FT[request.index][1]:
+                if self._in_between_(self.FT.FT[request.index][0],self.FT.FT[request.index][1],s):
+                    self.FT.FT[request.index] = (self.FT.FT[request.index][0], s, request.join_req.ip_addr) 
+                    p = self.predecessor
+                    server = grpc.insecure_channel(str(p)+":50051")
+                    client = chordprot_pb2_grpc.ChordStub(server)
+                    join_rq = JoinRequest(ip_addr = request.join_req.ip_addr)
+                    self.logger.debug(f"Recursive call to update_finger_table on node: {request.join_req.ip_addr}")
+                    client.update_finger_table(FingerUpdateRequest(join_req = join_rq, index = request.index))
+            else :
+
+                if self._in_between_(self._own_key(),self.FT.FT[request.index][1],s):
+                    self.FT.FT[request.index] = (self.FT.FT[request.index][0], s, request.join_req.ip_addr) 
+                    p = self.predecessor
+                    server = grpc.insecure_channel(str(p)+":50051")
+                    client = chordprot_pb2_grpc.ChordStub(server)
+                    join_rq = JoinRequest(ip_addr = request.join_req.ip_addr)
+                    self.logger.debug(f"Recursive call to update_finger_table on node: {request.join_req.ip_addr}")
+                    client.update_finger_table(FingerUpdateRequest(join_req = join_rq, index = request.index))
+                
         
         return chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty()
             
@@ -218,7 +234,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
                 break
             # for i in range(len(self.FT.FT)-1,-1,-1):
             #     if(self._own_key() < key_id):
-            #         if self.FT.FT[i][1] in range(mirror_node[1]+1, key_id):
+            #         if self.FT.FT[i][1] in range(mirror_node111[1]+1, key_id):
             #             mirror_node = (self.FT.FT[i][2], self.FT.FT[i][1])
             #             break
             #     else:
@@ -322,7 +338,7 @@ def print_fun(signum,frame):
 #used global for debugging
 node = ChordNode()
 if __name__ == '__main__':
-    print(f"{'=='*5}Starting Node process {'=='*5}\nIp address: {node.ip_addr}")
+    print(f"{'=='*5}Starting Node  process {'=='*5}\nIp address: {node.ip_addr}")
     for el in node.FT.FT:
          print(el)
     print("====\n====")
