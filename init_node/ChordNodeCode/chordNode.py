@@ -171,7 +171,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
             print(f"Successor of joining_node after init_finger_table(): IP Address -> {self.successor}, Hash Value -> {self._hash_(self.successor) % (2**len(self.FT.FT))}")
             self.logger.debug(f"Proceeding with the call to update_others().")
             self.update_others()
-            print(f"Completion of join().")
+            print(f"Successful completion of join().")
             return JoinResponse(num_hops = 2)
         
 
@@ -199,14 +199,14 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
 
         '''
         
-        print(f"Node with hash value -> {self._own_key()} | IP address -> {self.ip_addr} enters the init_finger_table().")
+        print(f"Node {self._own_key()} enters the init_finger_table().")
         try:
             with grpc.insecure_channel(ip_addr+":50051") as server:
                 client = chordprot_pb2_grpc.ChordStub(server)
                 self.logger.debug(f"Finger[1].start : {self.FT.FT[0][0]}")
                 successor = client.find_successor(SuccessorRequest(key_id = self.FT.FT[0][0]))
                 key_id, succ_ip_addr = successor.node_id , successor.ip_addr
-                self.logger.debug(f"Returned node from find_successor() call: {key_id} | {succ_ip_addr}.")
+                print(f"Returned node from find_successor() call: {key_id} | {succ_ip_addr}.")
                 self.FT.FT[0] = (self.FT.FT[0][0], key_id, succ_ip_addr)
 
             self.successor = self.FT.FT[0][2] 
@@ -277,7 +277,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
     def update_finger_table(self, request, context) -> chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty():
         '''
         update_finger_table
-        =============
+        ===================
         
         Updates the finger table entry of the corresponding node based on a gRPC request from other node.
 
@@ -299,7 +299,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
         
         '''
         s = self._hash_(request.join_req.ip_addr) % (2**len(self.FT.FT))
-        print(f"Node with hash value -> {self._own_key()} | IP address -> {self.ip_addr}, calling from node {request.join_req.ip_addr} | {s}, enters the update_finger_table().")
+        print(f"Node {self._own_key()}, calling from node {request.join_req.ip_addr} | {s}, enters the update_finger_table().")
         print(f"Upper bound is: {self.FT.FT[request.index][1]}")
         #init_condition = self._own_key() ==  s # and not init_condition
         #if not init_condition:
@@ -333,40 +333,81 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
 
 
     def find_successor(self, request: SuccessorRequest, context) -> SuccessorResponse:
+        '''
+        find_successor
+        ==============
+        
+         Finds the successor node for the given key_id using the Chord protocol algorithm.
+
+         Args:
+           request(SuccessorRequest): gRPC request containing the key_id for which the successor is to be found.
+           context: The context of the gRPC communication.
+
+         Raises:
+           grpc.RpcError: An error that may occur during the gRPC communication.
+
+         Note:
+           This method calls the find_predecessor method to determine the predecessor node for the given key_id.
+           It then establishes a gRPC channel with the predecessor node and retrieves the successor node using
+           the get_successor method. The node_id and IP address of the successor node are returned in a
+           SuccessorResponse object.
+           
+         Returns:
+           SuccessorResponse: A response containing the node_id and IP address of the successor node.
+      
+        '''
         try:
-            self.logger.debug("here")
-            self.logger.debug(request.key_id)
+            print(f"Calling find_predecessor() from find_successor() with key_id: {request.key_id}")
             pred_ip_addr = self.find_predecessor(request.key_id)
-            self.logger.debug(f"The client that get_successor will be called onto: {pred_ip_addr}")
+            print(f"Returned node from find_predecessor(): {pred_ip_addr} | {self._hash_(pred_ip_addr) % (2**len(self.FT.FT))}")
             with grpc.insecure_channel(pred_ip_addr+":50051") as channel:
                 client = chordprot_pb2_grpc.ChordStub(channel)
-                self.logger.debug(f"find_predecessor executes")
-                successor = client.get_successor(chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty()) #google_protobuf_empty the parameter ?
-                self.logger.debug(f"inside find_successor: {type(successor.node_id)}{successor.node_id} - {type(successor.ip_addr)}{successor.ip_addr}")
+                successor = client.get_successor(chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty()) 
+                print(f"Returned successor node for key_id {request.key_id} is: {self._hash_(successor.ip_addr) % (2**len(self.FT.FT))}")
                 return SuccessorResponse(node_id = successor.node_id, ip_addr = successor.ip_addr)
         except grpc.RpcError as e:
-            self.logger.error(f"Erro in find successor: {e}")
+            self.logger.error(f"Error in find successor: {e}")
             
             
 
     def find_predecessor(self, key_id: int) -> str:
+        '''
+        find_predecessor
+        ================
+        
+        Finds the predecessor node for the given key_id using the chord protocol algorithm.
+
+        Args:
+          key_id(int): The key_id for which the predecessor node is to be found.
+
+        Note:
+          This method utilizes the Chord Protocol to find the predecessor node for the specified key_id.
+          It starts by retrieving the successor node and then iteratively finds the closest preceding finger
+          until it identifies the predecessor. The process involves making gRPC calls to other nodes in the network.
+
+          If the network has only one node, the method returns the current node's IP address as the predecessor.
+       
+        Returns:
+          str: The IP address of the predecessor node.
+        
+        '''     
         server = grpc.insecure_channel(self.ip_addr+":50051")
         client = chordprot_pb2_grpc.ChordStub(server)
-        successor = client.get_successor(chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty()) #google_protobuf_empty the parameter ?
+        successor = client.get_successor(chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty()) 
 
         mirror_node = (self.ip_addr, self._own_key(), successor.node_id)
         mirror_node_copy =  tuple(mirror_node)
 
-        self.logger.debug(f"{successor.node_id} <--> {mirror_node[1]}")
         #initial condition: If there is only one node in network
         if successor.node_id == mirror_node[1]:
          return mirror_node[0]
 
 
         if not self._in_between_(mirror_node[1] + 1, successor.node_id + 1, key_id):
+            print(f"Calling closest_preceding_finger() from find_predecessor() with key_id: {key_id}")
             for i in range(len(self.FT.FT)-1,-1,-1):
               if self._in_between_(self._own_key() + 1, key_id, self.FT.FT[i][1]):
-                self.logger.debug(f"find_predecessor if block value: {self.FT.FT[i][1]}")
+                print(f"Closest preceding finger() returns {self.FT.FT[i][1]}")
                 mirror_node = (self.FT.FT[i][2], self.FT.FT[i][1])
                 break 
         
@@ -375,26 +416,48 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
             with grpc.insecure_channel(str(mirror_node[0])+":50051") as channel:
                     client = chordprot_pb2_grpc.ChordStub(channel)
                     mirror_node_resp = client.get_successor(chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty()) 
-                    self.logger.debug(f"mirror_node_resp from find_predecessor: {mirror_node_resp.node_id}")
+                    print(f"Returned node from get_successor({mirror_node[1]}) is: {mirror_node_resp.node_id}")
                     mirror_node = (mirror_node[0], mirror_node[1], mirror_node_resp.node_id)                        
 
 
-        while not self._in_between_(mirror_node[1] + 1, mirror_node[2]+1,key_id):
+        while not self._in_between_(mirror_node[1] + 1, mirror_node[2] + 1, key_id):
                 server = grpc.insecure_channel(str(mirror_node[0])+":50051")
                 client = chordprot_pb2_grpc.ChordStub(server)
-                self.logger.debug(f"While block in find_predecessor with key_id: {key_id}")
+                print(f"Calling closest_preceding_finger() from find_predecessor() with key_id: {key_id}")
                 closest_preceding_finger_res = client.closest_preceding_finger(SuccessorRequest(key_id = key_id)) 
-                self.logger.debug(f"closest_preceding_finger_res from find_predecessor: {closest_preceding_finger_res.ip_addr}")
+                print(f"Closest preceding finger() returns {closest_preceding_finger_res.node_id}")
                 with grpc.insecure_channel(str(closest_preceding_finger_res.ip_addr)+":50051") as channel:
                     client = chordprot_pb2_grpc.ChordStub(channel)
                     mirror_node_succ = client.get_successor(chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty()) 
+                    print(f"Returned node from get_successor({closest_preceding_finger_res.node_id}) is: {mirror_node_succ.node_id}")
                     mirror_node = (closest_preceding_finger_res.ip_addr, closest_preceding_finger_res.node_id, mirror_node_succ.node_id)
                    
-            
+        self.logger.debug(f"The execution of find_predecessor() has been completed successfully.")    
         return mirror_node[0] 
 
     def closest_preceding_finger(self, request: SuccessorRequest, context) -> SuccessorResponse:
-        self.logger.debug(f"Enters closest_ preceding_finger with SuccessorRequest: {type(request.key_id)}{request.key_id}")
+        '''
+        closest_preceding_finger
+        ========================
+        
+        Finds the closest preceding finger of current node to the specified key_id.
+
+        Args:
+          request(SuccessorRequest): gRPC request containing the key_id for which the closest preceding finger is to be found.
+          context: The context of the gRPC communication.
+
+        Note:
+          This method used to identify the closest preceding finger to the specified key_id. 
+          It iterates through the finger table in reverse order and returns the first finger that is in the range 
+          (self._own_key() + 1, request.key_id).
+
+          If no such finger is found, it returns the current node as the closest preceding finger.
+
+        Returns:
+          SuccessorResponse: A response containing the node_id and IP address of the closest preceding finger.
+
+        '''
+        print(f"Node {self._own_key()} enters the closest_preceding_finger() with key id {request.key_id}")
         for i in range(len(self.FT.FT)-1,-1,-1):
             if self._in_between_(self._own_key() + 1, request.key_id, self.FT.FT[i][1]):
                 return SuccessorResponse(node_id = self.FT.FT[i][1], ip_addr = self.FT.FT[i][2])         
@@ -403,33 +466,117 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
      
         
     def get_successor(self, request, context) -> SuccessorResponse:
-        #return  SuccessorResponse(node_id = self._hash_(self.FT.FT[0][2]) % (2**len(self.FT.FT)) , ip_addr = self.FT.FT[0][2])
+        '''
+        get_successor
+        =============
+        
+        Retrieves the successor node information.
+
+        Args:
+          request: An empty/unused gRPC request (== chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty).
+          context: The context of the gRPC communication.
+        
+        Note:
+          This method returns the information about the successor of the current node.
+          The node_id is calculated based on the hash of the successor's IP address and is wrapped around
+          the size of the finger table.
+          
+        Returns:
+          SuccessorResponse: A response containing the node_id and IP address of the successor node.  
+           
+        '''
         return  SuccessorResponse(node_id = self._hash_(self.successor) % (2**len(self.FT.FT)) , ip_addr = self.successor)
     
     def get_predecessor(self, request, context) -> SuccessorResponse:
-        return SuccessorResponse(node_id = self._hash_(self.predecessor) % 2**len(self.FT.FT), ip_addr = self.predecessor)
+        '''
+        get_predecessor
+        ===============
         
-    def set_predecessor(self, request: setPredecessorRequest, context) -> chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty(): 
-        self.predecessor = request.ip_addr
-        return chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty() 
-    
+        Retrieves the predecessor node information.
+
+        Args:
+          request: An empty/unused gRPC request (== chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty).
+          context: The context of the gRPC communication.
+        
+        Note:
+          This method returns the information about the predecessor of the current node.
+          The node_id is calculated based on the hash of the predecessor's IP address and is wrapped around
+          the size of the finger table.
+          
+        Returns:
+          SuccessorResponse: A response containing the node_id and IP address of the predecessor node.
+          
+        '''
+        return SuccessorResponse(node_id = self._hash_(self.predecessor) % 2**len(self.FT.FT), ip_addr = self.predecessor)
+      
     def set_successor(self, request: setPredecessorRequest, context)-> chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty():
+        '''
+        set_successor
+        =============
+        
+        Sets the successor node and updates the first entry of finger table.
+
+        Args:
+          request(setPredecessorRequest): gRPC request containing the IP address of the new successor.
+          context: The context of the gRPC communication.
+          
+        Note:
+          This method sets the successor node and updates the finger table to reflect the change.
+          The new successor's IP address is stored in the 'successor' attribute and the finger table
+          is updated accordingly. 
+          
+        Returns:
+          chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty: An empty response.
+        
+        '''
         self.successor = request.ip_addr
         self.FT.FT[0] = (self.FT.FT[0][0], self._hash_(request.ip_addr) % 2**len(self.FT.FT), request.ip_addr)
         return chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty()
+        
+    def set_predecessor(self, request: setPredecessorRequest, context) -> chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty(): 
+        '''
+        set_predecessor
+        =============
+        
+        Sets the predecessor node of current node.
 
+        Args:
+          request(setPredecessorRequest): gRPC request containing the IP address of the new predecessor.
+          context: The context of the gRPC communication.
+          
+        Note:
+          This method sets the predecessor node. The new successor's IP address is stored in the 'predecessor' attribute. 
+          
+        Returns:
+          chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty: An empty response.
+        
+        '''  
+        self.predecessor = request.ip_addr
+        return chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty() 
     
-    def _in_between_(self,node_id_lobound,node_id_upbound,key_id) -> bool:
+    
+    
+    def _in_between_(self, node_id_lobound, node_id_upbound, key_id) -> bool:
         '''
         _in_between_
         ============
-        node_id_lobound: lower bound of the range that is going to be checked, our RegionOfInterest(ROI)
-        node_id_upbound: upper bound of the range that is going to be checked, our RegionOfInterest(ROI)
-        key_id: value whose range is going to be checked.
+        Checks if the key_id is in the range between the specified lower and upper bounds.
 
-        basic_condition -> if there is no rewind in chord key_id is checked if is in between node_id_lobound and node_id_upbound.
-        We also need to check if rewind occured in the network. The first check in the `rewind_condition` evaluates the possible case where
-        rewind occured. Next up, we check if key_id lies in the arc (of the chord) from the range(node_id_lobound,node_id_upbound).
+        Args:
+          node_id_lobound: The lower bound of the range.
+          node_id_upbound: The upper bound of the range.
+          key_id: The key_id to be checked.
+        
+        Note:
+          This method checks if the key_id falls within the range specified by the lower and upper bounds.
+          The range is considered inclusive at the lower bound and exclusive at the upper bound.
+          The method handles two cases: 
+          1. Basic condition: The lower bound is less than the upper bound and the key_id is in the range.
+          2. Rewind condition: The lower bound is greater than the upper bound and the key_id
+          is in the range after considering the wrap-around of the identifier space.
+      
+        Returns:
+          bool: True if the key_id is in the specified range, False otherwise.
 
         '''
         basic_condition = node_id_lobound < node_id_upbound and key_id in range(node_id_lobound,node_id_upbound) 
@@ -438,11 +585,42 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
         return basic_condition or rewind_condition
 
     def _hash_(self, data) -> int:
+        '''
+        _hash_
+        ======
+        Computes the SHA-256 hash and returns it as an integer.
+
+        Args:
+          data: The data to be hashed.
+        
+        Note:
+          This method takes input data, encodes it in UTF-8, computes the SHA-256 hash
+          and returns the hash value as an integer.
+
+        Returns:
+          int: The integer representation of the SHA-256 hash.
+
+        '''
         sha256 = hashlib.sha256()
         sha256.update(data.encode('utf-8'))
         return int(sha256.hexdigest(),16)
 
     def _own_key(self) -> int:
+        '''
+        _own_key_
+        =========
+        
+        Computes and returns the Chord key corresponding to the node's IP address.
+        
+        Note:
+         This method computes the Chord key for the current node based on its IP address.
+         It utilizes the `_hash_` method to generate a SHA-256 hash and then takes the modulo
+         with the size of the identifier space defined by the finger table.
+
+        Returns:
+         int: The Chord key calculated from the node's IP address.
+        
+        '''
         return self._hash_(self.ip_addr) % 2**len(self.FT.FT)
 
 
@@ -452,10 +630,11 @@ def print_fun(signum, frame) -> None:
 #used global for debugging
 node = ChordNode()
 if __name__ == '__main__':
-    print(f"{'=='*5}Starting Node  process {'=='*5}\nIp address: {node.ip_addr}")
+    print(f"{'=='*5} Starting Node Process {'=='*5}\nIp address: {node.ip_addr}")
+    print(f"Computed values of 'start' field at FT: ")
     for el in node.FT.FT:
          print(el)
-    print("====\n====")
+    print("-----\n-----")
     signal.signal(signal.SIGUSR1, print_fun)
     # printing_ft_process = Process(target = print_fun) 
     node.serve()
