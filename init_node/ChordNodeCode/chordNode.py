@@ -41,7 +41,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
 
         def __key__(self) -> List[Tuple[int, int, str]]:
             ft_size = int(os.environ.get("FT_SIZE", 7))
-            #careful loop arround chord with modulo when overflowing total the number of nodes 2^7.
+            #careful loop around chord ring with modulo when overflowing the total number of possible key values(2^FT_SIZE).
             self.FT = [((self.hashed_ip_addr % (2**ft_size) + 2**i) % (2**ft_size) , 0, "") for i in range(ft_size)]
             
       
@@ -90,9 +90,8 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
             return JoinResponse(num_hops = 2)
 
     def init_finger_table(self, ip_addr: str) -> None:
-        print(f"Node with hash value {self._own_key()} enters the init_finger_table()")
+        print(f"Node with hash value {self._own_key()} enters the init_finger_table().")
         try:
-            #paper says finger[1].node | perhaps deadlock needs try catch
             with grpc.insecure_channel(ip_addr+":50051") as server:
                 client = chordprot_pb2_grpc.ChordStub(server)
                 self.logger.debug(f"finger[1].start : {self.FT.FT[0][0]}")
@@ -141,9 +140,9 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
             
     def update_others(self) -> None:
         for i in range(len(self.FT.FT)):
-            self.logger.debug(f" Enters find_predecessor from update_others with key_id: {(self._own_key() - (2**i)) % (2**len(self.FT.FT))}") 
-            ip_addr = self.find_predecessor((self._own_key() - (2**i)) % (2**len(self.FT.FT)))
-            self.logger.debug(f"Returned from find_predecessor inside update_others with : {ip_addr}\n join_req-> ip address: {self.ip_addr}") 
+            self.logger.debug(f"Enters find_predecessor from update_others with key_id: {(self._own_key() - (2**i)) % (2**len(self.FT.FT))}") 
+            ip_addr = self.find_predecessor((self._own_key() - (2**i) + 1) % (2**len(self.FT.FT))) #WARNING: the plus one solves the previous problem.
+            self.logger.debug(f"Returned from find_predecessor inside update_others with: {ip_addr}\n join_req -> ip address: {self.ip_addr}") 
             server = grpc.insecure_channel(str(ip_addr)+":50051")
             client = chordprot_pb2_grpc.ChordStub(server)
             join_rq = JoinRequest(ip_addr = self.ip_addr)
@@ -159,8 +158,8 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
 
         # (basic_condition or chord_rewind_condition_1) and not init_condition:
         init_condition = self._own_key() ==  s # and not init_condition
-        if not init_condition:
-
+        #if not init_condition:
+        if True:
             if self._own_key() == self.FT.FT[request.index][1]:
                 if self._in_between_(self.FT.FT[request.index][0], self.FT.FT[request.index][1], s):
                     self.FT.FT[request.index] = (self.FT.FT[request.index][0], s, request.join_req.ip_addr) 
@@ -172,7 +171,8 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
                     client.update_finger_table(FingerUpdateRequest(join_req = join_rq, index = request.index))
             else :
                 self.logger.debug(f"lowerbound: {self._own_key()}, s: {s}, upperbound: {self.FT.FT[request.index][1]} index: {request.index}")
-                if self._in_between_(self._own_key(), self.FT.FT[request.index][1] + 1, s):
+                #WARNING: the plus one solves the problem of recursive calls.
+                if self._in_between_(self._own_key() + 1, self.FT.FT[request.index][1] + 1, s):
                     self.logger.debug(f"update_finger_table else block inside if {s} in range ({self._own_key()},{self.FT.FT[request.index][1]})")
                     self.FT.FT[request.index] = (self.FT.FT[request.index][0], s, request.join_req.ip_addr) 
                     p = self.predecessor
@@ -228,7 +228,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
         # #exclude call to different rpc method if the node it refers to is itself.
         # if not (basic_condition or chord_rewind_condition_1 or chord_rewind_condition_2):
 
-        if not self._in_between_(mirror_node[1] + 1, successor.node_id+1, key_id):
+        if not self._in_between_(mirror_node[1] + 1, successor.node_id + 1, key_id):
             for i in range(len(self.FT.FT)-1,-1,-1):
               if self._in_between_(self._own_key() + 1, key_id, self.FT.FT[i][1]):
                 self.logger.debug(f"find_predecessor if block value: {self.FT.FT[i][1]}")
@@ -336,8 +336,8 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
         return self._hash_(self.ip_addr) % 2**len(self.FT.FT)
 
 
-def print_fun(signum,frame):
-    print(f"{node.FT}")
+def print_fun(signum, frame):
+    print(f"The final version of node's {node.ip_addr}(Hash value: {node._own_key()}) Finger Table(FT) is: \n{node.FT}")
     
 #used global for debugging
 node = ChordNode()
@@ -346,7 +346,7 @@ if __name__ == '__main__':
     for el in node.FT.FT:
          print(el)
     print("====\n====")
-    signal.signal(signal.SIGUSR1,print_fun)
+    signal.signal(signal.SIGUSR1, print_fun)
     # printing_ft_process = Process(target = print_fun) 
     node.serve()
             
