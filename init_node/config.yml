@@ -1,3 +1,11 @@
-network_var: "NET_NAME"
-container_var: "CONTAINER_ID"
-replicas_var: "NODE_REPLICAS" 
+chord:
+    network_var: "NET_NAME"
+    container_var: "CONTAINER_ID"
+    replicas_var: "NODE_REPLICAS" 
+
+crawler:
+    englishalph_cardinality: 26
+    user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)  Edg/118.0.2088.61"
+    page_title: "List of computer scientists"
+    details: ["alma_mater","education","awards"]
+

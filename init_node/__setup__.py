@@ -25,9 +25,9 @@ class ChordInitialization:
     '''
 
     def __init__(self):
-        self.netname = os.environ.get(config_file['network_var'])
-        self.container_id = os.environ.get(config_file['container_var'])
-        self.nodes = int(os.environ.get(config_file['replicas_var']))
+        self.netname = os.environ.get(config_file['chord']['network_var'])
+        self.container_id = os.environ.get(config_file['chord']['container_var'])
+        self.nodes = int(os.environ.get(config_file['chord']['replicas_var']))
 
         self.network = self._dnet_inspect()
         self.active_chord = list()
@@ -65,13 +65,13 @@ class ChordInitialization:
         self.active_chord.append(elected_host)
 
 
-        for i in range(3): #self.nodes -1
+        for i in range(15): #self.nodes -1
             #shuffle(self.network)
             arbitary_node = self.active_chord[i] #randint(0,len(self.active_chord)-1)
             print(arbitary_node)
             elected_host = self.network.pop()
             print(f"[{i}]: Election begins...")
-            sleep(0.3)
+            # sleep(0.3)
             print(f"[{i}]: Elected Node for initilization: {elected_host}")
             channel = grpc.insecure_channel(elected_host[0]+":50051")
             client = ChordStub(channel)
