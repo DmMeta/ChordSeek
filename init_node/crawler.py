@@ -58,7 +58,7 @@ class WebCrawler:
             soup = BeautifulSoup(response.text, 'lxml')
             llinks = soup.select('a')
             links = [unquote(link['href']) for name in names for link in llinks if name in link]
-                        
+            names = [unquote(link['title']) for name in names for link in llinks if name in link]            
             assert len(links) == len(names) ,"Found less than the expected number of scientists"
             
             return links, names
@@ -67,7 +67,7 @@ class WebCrawler:
             self.logger.error(f"Error occured: {e}")       
     
     def fetchData(self):
-        nullInfobox = 0
+        
         compsct_dict  = {}
         subpage = mwclient.Site('en.wikipedia.org')
         try: 
@@ -75,8 +75,6 @@ class WebCrawler:
                 
                 scientist = scientist[scientist.find("/", 1)+1:]
                 
-                if index == 30:
-                    return compsct_dict, nullInfobox
                 
                 print(f"[{index}]: Fetching scientist {scientist}...")
                 infobox = subpage.pages[scientist].resolve_redirect().text(section = "Infobox")
@@ -111,13 +109,12 @@ class WebCrawler:
 
     def _parseInfobox_(self, infobox, details):
     
-        parsed_info = {"alma_mater":[], "education":[], "awards":[]}
+        parsed_info = {"alma_mater":[], "education":[], "awards":[], "prizes":[]}
         #print(infobox)
-        reg_ex = [r"\[\[(?!(?:PhD|Ms|Bs|Bsc|\|))([A-Z][^\[\]|]*)\]\]",r"\[\[(?!(?:PhD|Ms|Bs|Bsc|\|))([A-Z][^\[\]|]*)\]\]",r"\[\[(.*?)\]\]"]
-        # reg_ex = [r'\[\[([^|\]]+)\]\]',r'\[\[([^|\]]+)\]\]',r"\[\[(.*?)\]\]"]
-        #reg_ex = [r"\[\[(.*?)\]\]",r"\[\[(.*?)\]\]",r"\[\[(.*?)\]\]"]
-        #test_regex = re.compile(    "\s*alma_mater\s*=[\s\S]*?([\.\=])")
-        det= [r"\s*alma_mater\s*=([\s\S]*?([\.\=]))",]
+        reg_ex = [r"\[\[(?!(?:PhD|Ms|Bs|Bsc|\|))([A-Z][^\[\]|]*)\]\]",
+                  r"\[\[(?!(?:PhD|Ms|Bs|Bsc|\|))([A-Z][^\[\]|]*)\]\]",
+                  r"\[\[(.*?)\]\]", r"\[\[(.*?)\]\]"]  
+        
         try :
             for index, detail in enumerate(details):
                 if detail in infobox:
@@ -127,23 +124,24 @@ class WebCrawler:
                     # parameter_value_end = infobox.index(".", parameter_value_start)
                     
                     required_part = re.findall(f"\s*{detail}\s*=([\s\S]*?([\}}\=]))", infobox)
-                    print(f"Infobox: {infobox}")
-                    print(f"Required_part: {required_part}")
+                    
+                    # print(f"Infobox: {infobox}")
+                    # print(f"Required_part: {required_part}")
                     if len(list(chain(required_part))) != 0:
                         required_part = list(chain(required_part))[0][0] 
                     else: required_part = ""
-                    #print(list(chain(required_part))[0][0],type(list(chain(required_part))[0][0]))
-                   # \[\[([^\[\]|]+)\]\]
-                   #r'\[\[([^|\]\d]+)(?:PhD|Ms|Bs|Bsc|\|\w+)?\]\]'
-                    # print(required_part)
+                    
                     
                     parsed_info[detail] = re.findall(reg_ex[index], required_part,re.IGNORECASE)
-            # \s*alma_mater\s*=\s*(.*?[^\=\.])   (\s*[\s\S]*) ([^=\n]*)  [\s\S]*?([\.\=])
+            
             if len(parsed_info["alma_mater"]) == 0:
                 del parsed_info["alma_mater"]
             else:
                 parsed_info["education"] = parsed_info["alma_mater"]
                 del parsed_info["alma_mater"]
+            
+            parsed_info["awards"] = list(chain(parsed_info["awards"], parsed_info["prizes"]))
+            del parsed_info["prizes"]
                 
         except Exception as e:
             self.logger.error(f"Error occured while parsing Infobox: {e}")
@@ -155,13 +153,12 @@ class WebCrawler:
 if __name__ == "__main__":
     test = WebCrawler()
     sttime = timer()
-    dictionary, nullinfoBox = test.fetchData()
+    dictionary = test.fetchData()
     endtime = timer()
     print(f"Elapsed time {endtime - sttime}")
     pp(dictionary)
     print(len(dictionary["Unknown University"]))
-    print(nullinfoBox)
 
-    with open(os.path.join('./','scientists.json'), 'w') as file:
-        file.write(json.dumps(dictionary,indent=3))
+    with open(os.path.join('./','scientists.json'), 'w', encoding='utf-8') as file:
+        json.dump(dictionary, file, indent = 3)
     # print(len(test.scientists),test.scientists[:30])
