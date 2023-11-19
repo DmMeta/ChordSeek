@@ -11,13 +11,12 @@ from itertools import chain
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import unquote
-
+from typing import List
 
 class WebCrawler:
 
-    def __init__(self) -> None:
-        with open(os.path.join('./','config.yml'), 'r') as config:
-            config_file = yaml.load(config, Loader = yaml.FullLoader)
+    def __init__(self, config_file) -> None:
+        
         
         self.EnglishAlphabetCardinality = config_file["crawler"]["englishalph_cardinality"]
 
@@ -33,7 +32,7 @@ class WebCrawler:
         except Exception as e:
             self.logger.error(f"Error occured: {e}")
         
-    def _get_scientists_(self) -> list[str]:
+    def _get_scientists_(self) -> List[str]:
         try:
             wiki_handle = wikipediaapi.Wikipedia('en', headers = self.headers)
             self.logger.info(f"Hitting {self.page_title} for data...")
@@ -66,12 +65,12 @@ class WebCrawler:
         except Exception as e:
             self.logger.error(f"Error occured: {e}")       
     
-    def fetchData(self):
+    def fetchData(self, batch_size = None):
         
         compsct_dict  = {}
         subpage = mwclient.Site('en.wikipedia.org')
         try: 
-            for index, scientist in enumerate(self.scientists_links):
+            for index, scientist in enumerate(self.scientists_links[:batch_size]):
                 
                 scientist = scientist[scientist.find("/", 1)+1:]
                 
