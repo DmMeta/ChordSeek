@@ -14,21 +14,11 @@ services:
             cpus: '0.5'
             memory: 100m
       entrypoint: ["watchexec","-f","chordNode.py","-c","-r", "--","python3","./chordNode.py"]
-          # - "watchexec"
-          # - "-f chordNode.py"
-          # - "-c"
-          # - " -- python3 ./chordNode.py"
-        # - "watchmedo"
-        # - "shell-command"
-        # - "--patterns='*.py'"
-        # - "--recursive"
-        # - "--command='python3 /opt/chordNode/chordNode.py'"
-        # - "/opt/chordNode/"
       environment:
-        - FT_SIZE=7
+        - FT_SIZE=${IDENT_SPACE_EXP}
       tty: true
       volumes: 
-          - ChordNodeData:/opt/chordNode/Data
+          - ChordNodeData:/opt/chordNode/Data/
           - ChordNodeCode:/opt/chordNode/
 
 networks: 
