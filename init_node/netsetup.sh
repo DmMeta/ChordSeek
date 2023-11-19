@@ -5,9 +5,11 @@ NET_OPTIONS="--driver=bridge --subnet=10.0.0.0/25 --gateway=10.0.0.1 --ip-range=
 
 export CONTAINER_ID=$(basename $(cat /proc/1/cpuset))  
 CHORD_DATA_VOLUME="ChordNodeData"
+CHORD_DATA_VOLUME_PATH="./init_node/ChordNodeCode/Data/"
 
 EXISTING_NET=$(docker network ls | grep $NET_NAME)
 export NODE_REPLICAS=32
+export IDENT_SPACE_EXP=11
 
 if [ -z "$EXISTING_NET" ]; then
     echo "The network with name: '$NET_NAME' does not exist.Creating..."
@@ -22,7 +24,13 @@ fi
 
 if ! docker volume inspect $CHORD_DATA_VOLUME &> /dev/null; then
     echo "Creating volume $CHORD_DATA_VOLUME"
-    docker volume create --name $CHORD_DATA_VOLUME
+    mkdir -p $CHORD_DATA_VOLUME_PATH
+    docker volume create \
+         --driver local \
+         --opt type=none \
+         --opt device="/home/up1072498/Projects/Chord/init_node/ChordNodeCode/Data/" \
+         --opt o=bind \
+         --name $CHORD_DATA_VOLUME
 fi
 
 if [ -z $(find ./init_node/ChordNodeCode -iname "*_pb2_*.py") ]; then
@@ -44,11 +52,23 @@ export PYTHONPATH="${PYTHONPATH:+${PYTHONPATH}:}/opt/chord/init_node/ChordNodeCo
 
 if [ -z "$(docker container ls -a  --format '{{.Names}}' | grep -E '^chord_chordNode')" ]; then
   echo "Nodes are non-existent. Creating and starting Nodes..." 
-  docker compose -f init_node/compose.yml -p chord up 
+  docker compose -f init_node/compose.yml -p chord up -d
 else
   echo "Cluster was already created. Restarting Nodes..."
   docker compose -f init_node/compose.yml -p chord start 
 fi
+
+python3 ./init_node/initilization.py
+
+
+# if [-z $(find ./ChordNodeCode/Data -name "*.db" )]; then
+#     echo "Calling crawler..."
+#     python3 ./init_node/crawler.py && echo "Data fetched successfully in $(find ./init_node -name "scientists.json") file."
+#     python3 ./init_node/__dataTransfer__.py && echo "Data transfered successfully."
+# fi
+
+
+
 
 while true
 do 
