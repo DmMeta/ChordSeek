@@ -8,6 +8,7 @@ import "google/protobuf/empty.proto";
 message JoinRequest {
     string ip_addr = 1;
     optional bool init = 2;
+    optional bool transfer_data = 3;
 }
 
 message JoinResponse {
@@ -52,29 +53,34 @@ service Chord {
     
 }
 
+
+message CompScientistData {
+    string Surname = 1;
+    string Education = 2;
+    uint32 Awards = 3;
+    uint32 Hash = 4;
+}
+
 message DataTransferRequest {
-    string id_addr = 1;
+    repeated CompScientistData data = 1;
 }
 
 
 message RangeQueryRequest {
-    uint32 max_awards = 1;
+    string university = 1;
+    optional uint32 max_awards = 2;
 }
 
 
 message RangeQueryResponse {
-    message CompScientistData {
-        string Surname = 1;
-        string Education = 2;
-        uint32 Awards = 3;
-    }
+    
     repeated CompScientistData rquerydata = 1;
     
 }
 
 
 service DataTransfer {
-    rpc send_data (DataTransferRequest) returns (google.protobuf.Empty);
+    rpc store (DataTransferRequest) returns (google.protobuf.Empty);
     rpc range_query (RangeQueryRequest) returns (RangeQueryResponse);
 }
     
