@@ -7,12 +7,13 @@ from chordprot_pb2 import (
     SuccessorRequest,
     SuccessorResponse,
     setPredecessorRequest,
-    FingerUpdateRequest
+    FingerUpdateRequest,
+    DataTransferRequest
 )
 
 
 import chordprot_pb2_grpc
-from dataclasses import dataclass,field
+from dataclasses import dataclass, field
 from typing import List,Tuple
 from subprocess import (
     run, 
@@ -25,8 +26,10 @@ from itertools import chain
 # from multiprocessing import Process
 from time import sleep
 import signal
+from google.protobuf.json_format import MessageToDict
+from chordDb import chordDb
 
-class ChordNode(chordprot_pb2_grpc.ChordServicer):
+class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransferServicer):
     '''
     A class that models the entity of a node in the Chord network. 
     The functionality includes behavior both as a client (sending requests) 
@@ -87,7 +90,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
           predecessor(str): The predecessor node in the Chord ring.
         
         
-        Note:
+        Note: 
           In case of an error during the retrieval of the IP address, an exception is caught and
           an error message is printed.
           
@@ -104,6 +107,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
 
         self.successor = ""
         self.predecessor = ""
+        self.chordDb = chordDb()
         logging.basicConfig(level = logging.DEBUG)
         self.logger = logging.getLogger(__name__)
         
@@ -121,6 +125,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
         '''
         server = grpc.server(ThreadPoolExecutor(max_workers=2))
         chordprot_pb2_grpc.add_ChordServicer_to_server(self, server)
+        chordprot_pb2_grpc.add_DataTransferServicer_to_server(self,server)
         server.add_insecure_port('[::]:50051')
         server.start()
         print(f"Server(IP Address: {self.ip_addr}) started!")
@@ -171,6 +176,8 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
             print(f"Successor of joining_node after init_finger_table(): IP Address -> {self.successor}, Hash Value -> {self._hash_(self.successor) % (2**len(self.FT.FT))}")
             self.logger.debug(f"Proceeding with the call to update_others().")
             self.update_others()
+            #if(request.transfer_data):
+              #self.transfer_data() #TODO: implement transfer_data(). -> get from successor(grpc func) corresponding data_records(with condition: hash_value <= joining_node_hash_value)
             print(f"Successful completion of join().")
             return JoinResponse(num_hops = 2)
         
@@ -607,8 +614,8 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
 
     def _own_key(self) -> int:
         '''
-        _own_key_
-        =========
+        _own_key
+        ========
         
         Computes and returns the Chord key corresponding to the node's IP address.
         
@@ -623,6 +630,23 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer):
         '''
         return self._hash_(self.ip_addr) % 2**len(self.FT.FT)
 
+    def store(self, request: DataTransferRequest, context)-> chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty():
+      dict_repr = MessageToDict(request, including_default_value_fields = True)
+
+      try:
+        #create .dbs to disk so that you can store data.
+        self.chordDb.write_disk()
+        #careful pass a list of dictionaries containing the data
+        if self.chordDb.store_data(dict_repr['data']): 
+           context.set_code(grpc.StatusCode.OK)
+           self.logger.info(f"Successfully stored data to node {self.ip_addr}")
+        else: 
+          context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+      except Exception as e:
+          self.logger.error(f"Error while storing data: {e}")
+      
+      print(f"request: {dict_repr}")
+      return chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty()
 
 def print_fun(signum, frame) -> None:
     print(f"The final version of node's {node.ip_addr}(Hash value: {node._own_key()}) Finger Table(FT) is: \n{node.FT}")
