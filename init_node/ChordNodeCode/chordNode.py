@@ -3,6 +3,7 @@ import grpc
 
 from chordprot_pb2 import (
     JoinResponse,
+    LeaveResponse,
     JoinRequest,
     SuccessorRequest,
     SuccessorResponse,
@@ -10,7 +11,8 @@ from chordprot_pb2 import (
     FingerUpdateRequest,
     DataTransferRequest,
     JoiningNodeKeyRequest,
-    DataTransferResponse
+    DataTransferResponse,
+    FixFingerRequest
 )
 
 
@@ -107,8 +109,8 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
             print(f"Error occured: {e}")
         self.FT = self.FingerTable(self._hash_(self.ip_addr))
 
-        self.successor = ""
-        self.predecessor = ""
+        self.successor = None
+        self.predecessor = None
         self.chordDb = chordDb()
         logging.basicConfig(level = logging.DEBUG)
         self.logger = logging.getLogger(__name__)
@@ -197,8 +199,51 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
                   self.logger.error(f"Error occured: {e}")
             print(f"Successful completion of join().")
             return JoinResponse(num_hops = 2)
+          
+    def leave(self, request, context) -> LeaveResponse:
+      if self.predecessor == self._own_key and self._own_key == self.successor: #case1: the node that will leave is on its own in the network
+        self.predecessor = None
+        self.successor = None
+        self.FT = None
+        try:
+          self.chordDb.fetch_and_delete_data()
+        except  Exception as e:
+          self.logger.error(f"An error occurred during the leave of node {self._own_key()}.")
+        return LeaveResponse(num_hops = 5)
+      
+      else: 
+        #case2: there are at least two nodes in the network
+        # successor.predecessor = self.predecessor
+        # predecessor.successor = self.successor
+        # fetch_and_delete_data in node's db
+        try:
 
-    def request_data(self,request: JoiningNodeKeyRequest,context) -> DataTransferResponse:
+          with grpc.insecure_channel(self.successor+":50051") as server:
+            client = chordprot_pb2_grpc.ChordStub(server)
+            client.set_predecessor(setPredecessorRequest(ip_addr = self.predecessor)) 
+          with grpc.insecure_channel(self.predecessor+":50051") as server:
+            client = chordprot_pb2_grpc.ChordStub(server)
+            client.set_successor(setPredecessorRequest(ip_addr = self.successor)) 
+        
+          leaving_node_data = self.chordDb.fetch_and_delete_data()
+          
+          with grpc.insecure_channel(self.successor+":50051") as channel:
+                     client = DataTransferStub(channel)                    
+                     client.store(DataTransferRequest(data = leaving_node_data)) #transfer data from leaving node to leaving node's successor
+        
+        except grpc.RpcError as e:
+            self.logger.error(f"Error during transmission occured: {e}")   
+        except  Exception as e:
+          self.logger.error(f"An error occurred during the leave of node {self._own_key()}.")
+        
+        self.fix_others() # updating the finger tables of nodes affected by the leave of current node
+        self.successor = None
+        self.predecessor = None
+        self.FT = None
+        print(f"Successful completion of leave().")
+        return LeaveResponse(num_hops = 8)
+           
+    def request_data(self, request: JoiningNodeKeyRequest, context) -> DataTransferResponse:
             try:
               joining_node_data = self.chordDb.fetch_and_delete_data(threshold = JoiningNodeKeyRequest.node_id)
               return DataTransferResponse(data_records = joining_node_data)
@@ -267,6 +312,39 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
             
         except grpc.RpcError as e:
                 self.logger.error(f"Error occured during the gRPC calls at init_finger_table(): {e}")
+    
+    
+    def fix_others(self) -> None:
+      
+      for i in range(len(self.FT.FT)):
+        print(f"Calling find_predecessor() from fix_others() with key_id: {(self._own_key() - (2**i)) % (2**len(self.FT.FT))}") 
+        #WARNING: the plus one solves the previous problem.
+        ip_addr = self.find_predecessor((self._own_key() - (2**i) + 1) % (2**len(self.FT.FT)))
+        print(f"Returned node from find_predecessor(): {ip_addr} | {self._hash_(ip_addr) % (2**len(self.FT.FT))}") 
+        server = grpc.insecure_channel(str(ip_addr)+":50051")
+        client = chordprot_pb2_grpc.ChordStub(server)
+        join_rq = JoinRequest(ip_addr = self.ip_addr)
+        print(f"Calling fix_finger_table() from fix_others() on node {self._hash_(ip_addr) % (2**len(self.FT.FT))} with node_id value: {self._own_key()}")
+        #tradeoff send bigger messages vs pay the find_successor call in fin_finger_table()
+        client.fix_finger_table(FixFingerRequest(join_req = join_rq, successor_ip_addr = self.successor, index = i))  
+    
+    def fix_finger_table(self, request, context) -> chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty():
+      s = self._hash_(request.join_req.ip_addr) % (2**len(self.FT.FT))
+      successor_node_id = self._hash_(request.successor_ip_addr) % (2**len(self.FT.FT))
+      print(f"Callee Node: {self._own_key()}, caller node: {request.join_req.ip_addr} | {s}, enters the fix_finger_table().")
+      
+      if self.FT.FT[request.index][1] == s:
+        self.logger.debug(f"Finger[i].node updates its value from {self.FT.FT[request.index][1]} to { successor_node_id }.")
+        self.FT.FT[request.index] = (self.FT.FT[request.index][0], successor_node_id, request.successor_ip_addr) 
+        p = self.predecessor
+        server = grpc.insecure_channel(str(p)+":50051")
+        client = chordprot_pb2_grpc.ChordStub(server)
+        join_rq = JoinRequest(ip_addr = request.join_req.ip_addr)
+        print(f"Recursive call to fix_finger_table on node {self._hash_(p) % (2**len(self.FT.FT))} with node_id value: {self._hash_(request.join_req.ip_addr) % (2**len(self.FT.FT))}")
+        client.fix_finger_table(FixFingerRequest(join_req = join_rq, 
+                                                 successor_ip_addr = request.successor_ip_addr, 
+                                                 index = request.index))
+        
         
             
     def update_others(self) -> None:

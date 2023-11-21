@@ -15,6 +15,10 @@ message JoinResponse {
     uint32 num_hops = 1;
 }
 
+message LeaveResponse {
+    uint32 num_hops = 1;
+}
+
 message SuccessorRequest{
     uint32 key_id = 1;
 }
@@ -29,6 +33,12 @@ message FingerUpdateRequest {
     uint32 index = 2;
 }
 
+message FixFingerRequest {
+    JoinRequest join_req = 1;
+    string successor_ip_addr = 2;
+    uint32 index = 3;
+}
+
 //only for setPredecessor
 message setPredecessorRequest {
     string ip_addr = 1;
@@ -36,8 +46,11 @@ message setPredecessorRequest {
 
 
 
+
+
 service Chord {
     rpc join (JoinRequest) returns (JoinResponse);
+    rpc leave (google.protobuf.Empty) returns (LeaveResponse);
     // rpc leave(LeaveRequest) returns (LeaveResponse);
     rpc find_successor (SuccessorRequest) returns (SuccessorResponse);
 
@@ -50,6 +63,7 @@ service Chord {
     rpc get_successor (google.protobuf.Empty) returns (SuccessorResponse);
     //TODO:check paper and convert rpc method below to iterative from recursive.
     rpc update_finger_table (FingerUpdateRequest) returns (google.protobuf.Empty);
+    rpc fix_finger_table (FixFingerRequest) returns (google.protobuf.Empty);
     
 }
 
