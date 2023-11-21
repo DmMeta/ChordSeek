@@ -72,16 +72,20 @@ message RangeQueryRequest {
 }
 
 
-message RangeQueryResponse {
+message JoiningNodeKeyRequest {
     
-    repeated CompScientistData rquerydata = 1;
+    uint32 node_id = 1;
     
+}
+
+message DataTransferResponse {
+    repeated CompScientistData data = 1;
 }
 
 
 service DataTransfer {
     rpc store (DataTransferRequest) returns (google.protobuf.Empty);
-    rpc range_query (RangeQueryRequest) returns (RangeQueryResponse);
+    rpc request_data (JoiningNodeKeyRequest) returns (DataTransferResponse);
 }
     
 
