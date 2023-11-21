@@ -36,6 +36,7 @@ class chordDb:
 
     def store_data(self, data_records)-> bool: #maybe unecessary?
         
+
         self.cursor.execute('''
         CREATE TABLE IF NOT EXISTS data_records (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,6 +45,10 @@ class chordDb:
         awards INTEGER,
         hash_value INTEGER)
         ''')
+        
+        if len(data_records) == 0:
+            self.logger.warning(f"No data to store in the database.")
+            return True
         
         try:
           

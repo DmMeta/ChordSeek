@@ -8,7 +8,9 @@ from chordprot_pb2 import (
     SuccessorResponse,
     setPredecessorRequest,
     FingerUpdateRequest,
-    DataTransferRequest
+    DataTransferRequest,
+    JoiningNodeKeyRequest,
+    DataTransferResponse
 )
 
 
@@ -23,7 +25,7 @@ import os
 import logging
 import hashlib
 from itertools import chain
-# from multiprocessing import Process
+# from multiprocessing import Process 
 from time import sleep
 import signal
 from google.protobuf.json_format import MessageToDict
@@ -176,11 +178,33 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
             print(f"Successor of joining_node after init_finger_table(): IP Address -> {self.successor}, Hash Value -> {self._hash_(self.successor) % (2**len(self.FT.FT))}")
             self.logger.debug(f"Proceeding with the call to update_others().")
             self.update_others()
-            #if(request.transfer_data):
-              #self.transfer_data() #TODO: implement transfer_data(). -> get from successor(grpc func) corresponding data_records(with condition: hash_value <= joining_node_hash_value)
+            if(request.transfer_data):
+              try:
+                 
+                  with grpc.insecure_channel(self.successor+":50051") as server:
+                      client = chordprot_pb2_grpc.ChordStub(server)
+                      node_data = client.request_data(JoiningNodeKeyRequest(node_id = self._own_key())) #TODO: implement transfer_data(). -> get from successor(grpc func) corresponding data_records(with condition: hash_value <= joining_node_hash_value)
+                      node_data = MessageToDict(node_data, including_default_value_fields = True)
+                      
+                      if self.chordDb.store_data(node_data['data']):
+                          self.logger.info(f"Success on transfering data from successor to joining node: {self._own_key()}.")
+                      else:
+                          raise grpc.RpcError(code = grpc.StatusCode.NOT_FOUND, details = "Error on storing data to joining node.")
+                          
+              except grpc.RpcError as e:
+                  self.logger.error(f"Error occured during the gRPC call: {e}")
+              except Exception as e:
+                  self.logger.error(f"Error occured: {e}")
             print(f"Successful completion of join().")
             return JoinResponse(num_hops = 2)
-        
+
+    def request_data(self,request: JoiningNodeKeyRequest,context) -> DataTransferResponse:
+            try:
+              joining_node_data = self.chordDb.fetch_and_delete_data(threshold = JoiningNodeKeyRequest.node_id)
+              return DataTransferResponse(data_records = joining_node_data)
+            except  Exception as e:
+                self.logger.error(f"Error occured during retrieval of joining node data: {e}")
+                return DataTransferResponse(data_records = dict(data = []))
 
     def init_finger_table(self, ip_addr: str) -> None:
         '''
