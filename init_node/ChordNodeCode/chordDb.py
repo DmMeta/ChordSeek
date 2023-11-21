@@ -20,7 +20,7 @@ class chordDb:
             self.db_name = f"{hostname}_chord.db"
             if os.path.exists(os.path.join("./Data", self.db_name)):
                 self.logger.debug(f"Previous Db file found. Connecting to the database...")
-                self.connection = sqlite3.connect(os.path.join("./Data", self.db_name))
+                self.connection = sqlite3.connect(os.path.join("./Data", self.db_name), check_same_thread = False)
                 self.cursor = self.connection.cursor()
             else:  
                 self.logger.debug(f"Previous Db file not found. Creating the database...")
@@ -68,13 +68,13 @@ class chordDb:
             return False
     
     def write_disk(self) -> None:
-        self.connection = sqlite3.connect(os.path.join("./Data", self.db_name))
+        self.connection = sqlite3.connect(os.path.join("./Data", self.db_name), check_same_thread = False)
         self.cursor = self.connection.cursor()
         
     
     def fetch_data(self, education, awards_threshold = 0)-> List[Dict[str, any]]:
         try:
-            self.cursor.execute("SELECT surname, education, awards FROM data_records where education =? and awards >=?", (education, awards_threshold))
+            self.cursor.execute("SELECT surname, education, awards FROM data_records where education = ? and awards >= ?", (education, awards_threshold,))
             columns = [column[0] for column in self.cursor.description]
             data = [dict(zip(columns, row)) for row in self.cursor.fetchall()]
             return data
@@ -90,27 +90,28 @@ class chordDb:
                 self.cursor.execute("SELECT surname, education, awards, hash_value FROM data_records")
                 columns = [column[0] for column in self.cursor.description]
                 data = [dict(zip(columns, row)) for row in self.cursor.fetchall()]
-                try:
-                    self.cursor.execute("DELETE FROM data_records")
-                    self.connection.commit()
-                except sqlite3.Error as error:
-                    self.logger.error(f"Error while deleting data: {error}")
-                    self.connection.rollback()
-                    return data
+                
+                self.cursor.execute("DELETE FROM data_records")
+                self.connection.commit()
+
+                return data
 
             except sqlite3.Error as error:
                 self.logger.error(f"Error while fetching and deleting data: {error}")
+                self.connection.rollback()
                 return []
             except Exception as e:
                 self.logger.error(f"Error while fetching and deleting data: {e}")
                 return []
         else: #eq a new node joins(new predecessor of current node)
             try:
-                self.cursor.execute("SELECT surname, education, awards, hash_value FROM data_records where hash_value <=?", (threshold))
+                self.logger.warning(f"Entering else of fetch_and_delete_data")
+                self.cursor.execute("SELECT surname, education, awards, hash_value FROM data_records where hash_value <= ?", (threshold,))
                 columns = [column[0] for column in self.cursor.description]
                 data = [dict(zip(columns, row)) for row in self.cursor.fetchall()]
+                self.logger.warning(f"Proceeding in else of fetch_and_delete_data")
                 try:
-                    self.cursor.execute("DELETE FROM data_records where hash_value <=?", (threshold))
+                    self.cursor.execute("DELETE FROM data_records where hash_value <= ?", (threshold,))
                     self.connection.commit()
                 except sqlite3.Error as error:
                     self.logger.error(f"Error while deleting data: {error}")

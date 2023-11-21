@@ -12,7 +12,8 @@ from chordprot_pb2 import (
     DataTransferRequest,
     JoiningNodeKeyRequest,
     DataTransferResponse,
-    FixFingerRequest
+    FixFingerRequest,
+    CompScientistData
 )
 
 
@@ -30,7 +31,7 @@ from itertools import chain
 # from multiprocessing import Process 
 from time import sleep
 import signal
-from google.protobuf.json_format import MessageToDict
+from google.protobuf.json_format import MessageToDict, Parse
 from chordDb import chordDb
 
 class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransferServicer):
@@ -127,7 +128,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
           None
           
         '''
-        server = grpc.server(ThreadPoolExecutor(max_workers=2))
+        server = grpc.server(ThreadPoolExecutor(max_workers=4))
         chordprot_pb2_grpc.add_ChordServicer_to_server(self, server)
         chordprot_pb2_grpc.add_DataTransferServicer_to_server(self,server)
         server.add_insecure_port('[::]:50051')
@@ -174,7 +175,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
             return JoinResponse(num_hops = 1)
         else:
             print(f"Hash value of joining_node: {self._own_key()}")
-            self.init_finger_table(request.ip_addr) # passing ip address
+            self.init_finger_table(request.ip_addr) # passing  ip address
             self.logger.debug(f"Finger Table(FT) of joining_node after init_finger_table(): {self.FT}")
             print(f"Predecessor of joining_node after init_finger_table(): IP Address -> {self.predecessor}, Hash Value -> {self._hash_(self.predecessor) % (2**len(self.FT.FT))}")
             print(f"Successor of joining_node after init_finger_table(): IP Address -> {self.successor}, Hash Value -> {self._hash_(self.successor) % (2**len(self.FT.FT))}")
@@ -182,9 +183,9 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
             self.update_others()
             if(request.transfer_data):
               try:
-                 
+                  self.chordDb.write_disk()
                   with grpc.insecure_channel(self.successor+":50051") as server:
-                      client = chordprot_pb2_grpc.ChordStub(server)
+                      client = chordprot_pb2_grpc.DataTransferStub(server)
                       node_data = client.request_data(JoiningNodeKeyRequest(node_id = self._own_key())) #TODO: implement transfer_data(). -> get from successor(grpc func) corresponding data_records(with condition: hash_value <= joining_node_hash_value)
                       node_data = MessageToDict(node_data, including_default_value_fields = True)
                       
@@ -192,15 +193,15 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
                           self.logger.info(f"Success on transfering data from successor to joining node: {self._own_key()}.")
                       else:
                           raise grpc.RpcError(code = grpc.StatusCode.NOT_FOUND, details = "Error on storing data to joining node.")
-                          
+                      
+                      print(f"Successful completion of join().")    
               except grpc.RpcError as e:
                   self.logger.error(f"Error occured during the gRPC call: {e}")
               except Exception as e:
                   self.logger.error(f"Error occured: {e}")
-            print(f"Successful completion of join().")
             return JoinResponse(num_hops = 2)
           
-    def leave(self, request, context) -> LeaveResponse:
+    def leave(self,request, context) -> LeaveResponse:
       if self.predecessor == self._own_key and self._own_key == self.successor: #case1: the node that will leave is on its own in the network
         self.predecessor = None
         self.successor = None
@@ -226,17 +227,21 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
             client.set_successor(setPredecessorRequest(ip_addr = self.successor)) 
         
           leaving_node_data = self.chordDb.fetch_and_delete_data()
-          
           with grpc.insecure_channel(self.successor+":50051") as channel:
-                     client = DataTransferStub(channel)                    
-                     client.store(DataTransferRequest(data = leaving_node_data)) #transfer data from leaving node to leaving node's successor
+                     client = chordprot_pb2_grpc.DataTransferStub(channel)
+                     dt = map(lambda scientist: CompScientistData(Surname = scientist.get("surname"),
+                                                             Education = scientist.get("education"),
+                                                             Awards = scientist.get("awards"),
+                                                             Hash = scientist.get("hash_value")),leaving_node_data)
+
+                     client.store(DataTransferRequest(data = dt)) #trans fer data from leaving node to leaving node's successor
         
         except grpc.RpcError as e:
             self.logger.error(f"Error during transmission occured: {e}")   
         except  Exception as e:
           self.logger.error(f"An error occurred during the leave of node {self._own_key()}.")
         
-        self.fix_others() # updating the finger tables of nodes affected by the leave of current node
+        self.fix_others() # updating the finger tables of nodes  affected by the leave of current node
         self.successor = None
         self.predecessor = None
         self.FT = None
@@ -245,15 +250,20 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
            
     def request_data(self, request: JoiningNodeKeyRequest, context) -> DataTransferResponse:
             try:
-              joining_node_data = self.chordDb.fetch_and_delete_data(threshold = JoiningNodeKeyRequest.node_id)
-              return DataTransferResponse(data_records = joining_node_data)
+              joining_node_data = self.chordDb.fetch_and_delete_data(threshold = int(request.node_id))
+              dt = map(lambda scientist: CompScientistData(Surname = scientist.get("surname"),
+                                                             Education = scientist.get("education"),
+                                                             Awards = scientist.get("awards"),
+                                                             Hash = scientist.get("hash_value")),joining_node_data)
+              return DataTransferResponse(data = dt)
             except  Exception as e:
                 self.logger.error(f"Error occured during retrieval of joining node data: {e}")
-                return DataTransferResponse(data_records = dict(data = []))
+                response = DataTransferResponse()
+                return response
 
     def init_finger_table(self, ip_addr: str) -> None:
         '''
-        init_finger_table
+        init_finger_table   
         =================
         
         Calculates the values of the node and node_ip_address fields of the finger table's entries
@@ -291,7 +301,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
                 self.predecessor =  client.get_predecessor(chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty()).ip_addr
                 client.set_predecessor(setPredecessorRequest(ip_addr = self.ip_addr))
                 
-            #print(f"Predecessor of node {self._own_key()} is: {self.predecessor} - {self._hash_(self.predecessor) % (2**len(self.FT.FT))}") 
+            #print(f"Predecessor of node {self._own_key()} is: {self.predecessor}  -  {self._hash_(self.predecessor) % (2**len(self.FT.FT))}") 
             #print(f"Successor of node {self._own_key()} is: {self.successor} - {self._hash_(self.successor) % (2**len(self.FT.FT))}")      
                    
             with grpc.insecure_channel(self.predecessor+":50051") as server:
@@ -344,6 +354,8 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
         client.fix_finger_table(FixFingerRequest(join_req = join_rq, 
                                                  successor_ip_addr = request.successor_ip_addr, 
                                                  index = request.index))
+      
+      return chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty()
         
         
             
@@ -747,11 +759,11 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
       except Exception as e:
           self.logger.error(f"Error while storing data: {e}")
       
-      print(f"request: {dict_repr}")
+      print(f"request: {dict_repr}") 
       return chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty()
 
 def print_fun(signum, frame) -> None:
-    print(f"The final version of node's {node.ip_addr}(Hash value: {node._own_key()}) Finger Table(FT) is: \n{node.FT}")
+    print(f"The final version of node's {node.ip_addr}(Hash value: {node._own_key()}\nPredeccessor: {node.predecessor}) Finger Table(FT) is: \n{node.FT}")
     
 #used global for debugging
 node = ChordNode()
