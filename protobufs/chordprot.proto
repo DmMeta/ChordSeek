@@ -103,6 +103,10 @@ message FingerTableResponse {
     repeated FingerTableRecord data = 1; 
 }
 
+message DataTransferResponse {
+    repeated CompScientistData data = 1;
+}
+
 
 
 
