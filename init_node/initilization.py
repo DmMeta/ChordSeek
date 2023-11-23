@@ -2,10 +2,18 @@ import os
 import yaml
 from crawler import WebCrawler
 from __dataTransfer__ import DataTransfer
-from __setup__ import ChordInitialization
+from __setup__ import (
+    ChordInitialization,
+    ChordStub,
+    grpc,
+    JoinRequest,
+    google_pb_empty
+)
 from timeit import default_timer as timer
 import hashlib
 from functools import partial
+
+from random import randint
 
 def hash(data, modulus) -> int:
         '''
@@ -30,33 +38,49 @@ def hash(data, modulus) -> int:
 
 
 
+
 def main():
     
     try:
     
-        with open(os.path.join('./init_node','config.yml'), 'r') as config:
+        with open(os.path.join('netcrwl_config.yml'), 'r') as config:
                     config_file = yaml.load(config, Loader = yaml.FullLoader)
         
         print(f"Beginning the setup of the chord network...")
         chord = ChordInitialization(config_file = config_file)
         chord.initialize()
-        print(f"Network was successfully initialized")
+        print(f"Network was successfully initialized.")
         
-        #check for previous file configuration
-        Data_volume = os.listdir(os.path.join(config_file["chord"]["data_vol_path"]))
-        dbs = [file for file in Data_volume if file.endswith(".db")]
-        if len(dbs) == 0:
+        
+        cache_hit = os.environ.get(config_file['data_cache']) 
+        print(cache_hit)
+        if cache_hit == "miss":
             crawler = WebCrawler(config_file = config_file)
             starttime = timer()
             Scientist_dict = crawler.fetchData()
             endtime = timer()
             print(f"Data successfully fetched in {endtime - starttime} seconds.")
             dataLoader = DataTransfer(data = Scientist_dict, network = chord.active_chord)
-            dataLoader.transmitData(hash_fun = partial(hash, modulus = int(os.getenv("IDENT_SPACE_EXP"))))
+            dataLoader.transmitData(hash_fun = partial(hash, modulus = int(os.environ.get(config_file['chord']['exp']))))
 
-        print(f"Initilization of the chord network was successful")
+        print(f"Initilization of the chord network was successful.")
+
+        test_arb_node = chord.active_chord[randint(0, len(chord.active_chord) - 1)]
+        for i in range(len(chord.network)):
+         
+          test_new_node = chord.network.pop()
+          print(f"Joining node is: {test_new_node}\nArbitary node is: {test_arb_node}")
+          channel = grpc.insecure_channel(test_new_node[1]+":50051")
+          client = ChordStub(channel)
+          test = client.join(JoinRequest(ip_addr = test_arb_node[1], transfer_data = True))
+          chord.active_chord.append(test_new_node)
+          print(test)
         
-    
+        channel = grpc.insecure_channel("10.0.0.6:50051")
+        client = ChordStub(channel)
+        test = client.leave(google_pb_empty.Empty())
+        print(test)
+  
     except Exception as e:
         print(f"Error occured at Initilization: {e}")
 

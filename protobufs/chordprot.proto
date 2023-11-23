@@ -51,17 +51,12 @@ message setPredecessorRequest {
 service Chord {
     rpc join (JoinRequest) returns (JoinResponse);
     rpc leave (google.protobuf.Empty) returns (LeaveResponse);
-    // rpc leave(LeaveRequest) returns (LeaveResponse);
     rpc find_successor (SuccessorRequest) returns (SuccessorResponse);
-
-    //rpc find_predecessor(SuccessorRequest) returns (SuccessorResponse);
     rpc closest_preceding_finger (SuccessorRequest) returns (SuccessorResponse);
     rpc set_predecessor (setPredecessorRequest) returns (google.protobuf.Empty);
     rpc set_successor (setPredecessorRequest) returns (google.protobuf.Empty);
-    
     rpc get_predecessor (google.protobuf.Empty) returns (SuccessorResponse);
     rpc get_successor (google.protobuf.Empty) returns (SuccessorResponse);
-    //TODO:check paper and convert rpc method below to iterative from recursive.
     rpc update_finger_table (FingerUpdateRequest) returns (google.protobuf.Empty);
     rpc fix_finger_table (FixFingerRequest) returns (google.protobuf.Empty);
     

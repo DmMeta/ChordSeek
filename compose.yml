@@ -1,0 +1,91 @@
+version: "3.8"
+services:
+    chordNode:
+      build:
+         context: ./build/p2p_node/
+         dockerfile: Dockerfile
+      image: chord_node:v1.0
+      networks: 
+        - chord
+      deploy:
+        replicas: "${NODE_REPLICAS}"
+        resources:
+          limits:
+            cpus: '0.5'
+            memory: 100m
+      entrypoint: #["watchexec","-f","chordNode.py","-c","-r", "--","python3","./chordNode.py"]
+        - /bin/bash
+        - -c
+        - |
+          watchexec -f chordNode.py -c -r -- python3 ./chordNode.py
+      environment:
+        - FT_SIZE=${IDENT_SPACE_EXP}
+      tty: true
+      volumes: 
+          - ChordNodeData:/opt/chordNode/Data/
+          - ChordNodeCode:/opt/chordNode/
+          - ProtoStubs:/opt/chordNode/generatedStubs/
+    
+    initNode: 
+      build:
+         context: ./build/init_node/
+         dockerfile: Dockerfile
+      depends_on: 
+         - chordNode
+      image: init_node:v1.4
+      container_name: init_node
+      networks: 
+        chord:
+      tty: true
+      entrypoint: 
+            - /bin/bash 
+            - -c 
+            - |
+              python3 initilization.py
+      environment:
+        - DATA_PRESENT=${DB_PRESENT}
+        - CNAME=init_node
+        - NET_NAME=${NNAME}
+        - EXPONENT=${IDENT_SPACE_EXP}
+      volumes: 
+          - InitNodeCode:/opt/chord/
+          - /var/run/docker.sock:/var/run/docker.sock
+          - ProtoStubs:/opt/chord/generatedStubs/
+          
+          
+networks: 
+    chord: 
+        name: chord-net
+        external: true
+
+volumes:
+    ChordNodeData:
+        external: true
+    InitNodeCode:
+        external: true
+    ChordNodeCode:
+        external: true
+    ProtoStubs:
+        external: true
+    # DooD:
+    #     name: DockerOutOfDocker
+    #     driver: local
+    #     driver_opts:
+    #         o: bind
+    #         type: none
+    #         device: /var/run/docker.sock
+
+        # name: ChordNodeCode
+        # driver: local
+        # driver_opts:
+        #     o: bind
+        #     type: none
+        #     device: /home/up1072498/Projects/Chord/init_node/ChordNodeCode
+      
+
+
+       # while true; do 
+              #   echo "Init node is alive: $(date +"%T")"
+              #   sleep 100
+              # done"            
+              # /bin/bash -c "python3 ./initilization.py
