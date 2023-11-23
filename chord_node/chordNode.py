@@ -34,7 +34,7 @@ from itertools import chain
 # from multiprocessing import Process 
 from time import sleep
 import signal
-from google.protobuf.json_format import MessageToDict, Parse
+from google.protobuf.json_format import MessageToDict
 from chordDb import chordDb
 from hopsCounter import HopsCounterInterceptor
 
