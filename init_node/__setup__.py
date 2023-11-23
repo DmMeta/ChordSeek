@@ -6,8 +6,8 @@ import yaml
 
 #python path is updated through netsetup.sh script so that the following
 #expression is interpreted successfully.
-from ChordNodeCode.chordprot_pb2_grpc import ChordStub
-from ChordNodeCode.chordprot_pb2 import (
+from generatedStubs.chordprot_pb2_grpc import ChordStub 
+from generatedStubs.chordprot_pb2 import (
     JoinRequest
 )
 from random import (
@@ -15,7 +15,7 @@ from random import (
     randint
 )
 from time import sleep
-
+from generatedStubs.chordprot_pb2_grpc import google_dot_protobuf_dot_empty__pb2 as google_pb_empty
 
 
 class ChordInitialization:  
@@ -24,9 +24,16 @@ class ChordInitialization:
     '''
 
     def __init__(self, config_file):
+        #These probably should change. Applying the change.
         self.netname = os.environ.get(config_file['chord']['network_var'])
-        self.container_id = os.environ.get(config_file['chord']['container_var'])
-        self.nodes = int(os.environ.get(config_file['chord']['replicas_var']))
+        try:
+            client = docker.from_env()
+            print(f"client dockinit| {os.environ.get(config_file['chord']['container_var'])}")
+            
+            self.container_id = client.containers.get(os.environ.get(config_file['chord']['container_var'])).id
+        except docker.errors.APIError as e:
+             print(f"Failed to get container id for init_node")
+        # self.nodes = int(os.environ.get(config_file['chord']['replicas_var']))
 
         self.network = self._dnet_inspect()
         self.active_chord = list()
@@ -51,8 +58,9 @@ class ChordInitialization:
     def initialize(self):
         
         print(f"Initial hosts in network: {len(self.network)}")
+        network_size = len(self.network)
 
-        shuffle(self.network)
+        #shuffle(self.network)
         elected_host = self.network.pop()
         print(f"Election begins...")
         sleep(1.5)
@@ -63,10 +71,9 @@ class ChordInitialization:
         self.hops = client.join(JoinRequest(ip_addr = elected_host[1], init = True)).num_hops
         self.active_chord.append(elected_host)
 
-
-        for i in range(self.nodes -1): 
-            shuffle(self.network)
-            arbitary_node = self.active_chord[randint(0,len(self.active_chord)-1)] 
+        for i in range(network_size - 7): 
+            #shuffle(self.network)
+            arbitary_node = self.active_chord[randint(0, len(self.active_chord) - 1)] 
             print(arbitary_node)
             elected_host = self.network.pop()
             print(f"[{i}]: Election begins...")

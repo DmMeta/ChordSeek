@@ -1,0 +1,27 @@
+network_name: "chord-net"
+network_options: 
+            gateway: "10.0.0.1"
+            subnet: "10.0.0.0/25"
+            ip_range: "10.0.0.2/26"
+volumes:
+      names:
+        - "ChordNodeData"
+        - "ChordNodeCode"
+        - "InitNodeCode"
+        - "ProtoStubs"
+      paths: 
+        - "Data/"
+        - "chord_node/"
+        - "init_node/"
+        - "protobufs/generated/"
+
+protobuffer:
+          path: "protobufs/"
+
+compose:
+      path: "./compose.yml"
+      name: "chord"
+      variables:
+              NODE_REPLICAS: 32
+              IDENT_SPACE_EXP: 11
+              DB_PRESENT: 

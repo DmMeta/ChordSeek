@@ -1,7 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 import grpc
 
-from chordprot_pb2 import (
+from generatedStubs.chordprot_pb2 import (
     JoinResponse,
     LeaveResponse,
     JoinRequest,
@@ -14,10 +14,9 @@ from chordprot_pb2 import (
     DataTransferResponse,
     FixFingerRequest,
     CompScientistData
-)
-
-
-import chordprot_pb2_grpc
+) 
+ 
+import generatedStubs.chordprot_pb2_grpc as chordprot_pb2_grpc
 from dataclasses import dataclass, field
 from typing import List,Tuple
 from subprocess import (
@@ -31,7 +30,7 @@ from itertools import chain
 # from multiprocessing import Process 
 from time import sleep
 import signal
-from google.protobuf.json_format import MessageToDict, Parse
+from google.protobuf.json_format import MessageToDict
 from chordDb import chordDb
 
 class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransferServicer):
@@ -144,16 +143,17 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
         ====
         
         Manages the process of integrating a node into the Chord ring network. 
-        After its execution, the node introduced to the network has calculated the appropriate values for its finger table. 
-        Additionally, in the case where the new node is not the first node (init_node)(to be introduced into the network), 
+        After its execution, the node introduced to the network has its finger table calculated. 
+        Additionally, in the case where the new node is not the the first be introduced in the network
         necessary updates to the values of the finger tables of the nodes affected by the entry of the new node 
         are performed through a call to Update_others().
 
         Args:
-          request (JoinRequest): gRPC request containing information(IP Address) about the network node from which 
-          the initiation of the integration process of the new node into the network will begin. 
-          Additionally, it includes a boolean variable init that determines whether the new node is the first one to be integrated into the network.
-          
+          request (JoinRequest): gRPC request containing information(IP Address) about the node 
+          based on which the joining proccess will commence.
+
+          Additionally, the request includes a boolean variable, namely init, that determines 
+          whether the joining node is the first node in the network.
           context: The context object for the gRPC call.
 
         Returns:
@@ -161,9 +161,13 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
           needed for the integration of the node into the network.
 
         Note:
-          If the 'init' flag is set to True in the request(indicating that the new node is the first one to be integrated into the network), 
-          the node initializes its finger table and sets itself as the predecessor and successor. Otherwise, it initializes the finger table,
+          If the 'init' flag is set to True in the request(indicating that the new node is the first one joining the network), 
+          the joining node then initializes its finger table and sets itself as the predecessor and successor. Otherwise, it initializes the finger table,
           updates its predecessor and successor and calls update_others() in order to 'notify' existing nodes about the new node.
+           
+          If the 'transfer_data' flag is set(== True) in the request(meaning that the joining node was not part of the initial network), 
+          it transfers the appropriate data(condition: joining's node.predecessor hash value < data's hash value <= joining's node hash value) 
+          from the successor to the joining node to ensure consistent data distribution across the Chord ring.
           
         '''
         if(request.init):
@@ -184,10 +188,11 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
             self.update_others()
             if(request.transfer_data):
               try:
+                  print(f"The joininig_node is not a part of the initial Chord network ring. A potential transfer of data from the successor is required.")
                   self.chordDb.write_disk()
                   with grpc.insecure_channel(self.successor+":50051") as server:
                       client = chordprot_pb2_grpc.DataTransferStub(server)
-                      node_data = client.request_data(JoiningNodeKeyRequest(node_id = self._own_key())) #TODO: implement transfer_data(). -> get from successor(grpc func) corresponding data_records(with condition: hash_value <= joining_node_hash_value)
+                      node_data = client.request_data(JoiningNodeKeyRequest(node_id = self._own_key())) 
                       node_data = MessageToDict(node_data, including_default_value_fields = True)
                       
                       if self.chordDb.store_data(node_data['data']):
@@ -202,8 +207,36 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
                   self.logger.error(f"Error occured: {e}")
             return JoinResponse(num_hops = 2)
           
-    def leave(self,request, context) -> LeaveResponse:
-      if self.predecessor == self._own_key and self._own_key == self.successor: #case1: the node that will leave is on its own in the network
+    
+    def leave(self, request, context) -> LeaveResponse:
+      '''
+      leave
+      =====
+      
+      Manages the departure process of a node from the Chord ring network.
+
+      Args:
+        request (LeaveRequest): An empty/unused gRPC request (== chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty).
+        context: The context object for the gRPC call.
+        
+      Note:
+        The function handles the departure of a node from the Chord ring network, considering two scenarios:
+          1. If the departing node is the only node in the network, it removes itself and clears its data.
+          2. If there are at least two nodes in the network, it updates the successor and predecessor of surrounding nodes,
+             transfers data to its successor, updates finger tables and clears its own data, namely its successor, predecessor and finger table.
+      
+      Returns:
+        LeaveResponse: The response indicates the success of the leave process and the required number of steps(number of hops) 
+        needed for the departure of the node from the network. ?(αυτό λογικά θα αλλάξει με τους interceptors)
+        
+      Raises:
+        grpc.RpcError: If there is an error during the gRPC call.
+        Exception: For other unexpected errors.
+  
+      '''
+      #case1: the node that will leave is on its own in the network
+      if self.predecessor == self._own_key and self._own_key == self.successor:
+        print(f"The leaving node is the only node in the network.") 
         self.predecessor = None
         self.successor = None
         self.FT = None
@@ -215,30 +248,24 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
       
       else: 
         #case2: there are at least two nodes in the network
-        # successor.predecessor = self.predecessor
-        # predecessor.successor = self.successor
-        # fetch_and_delete_data in node's db
+        print(f"The are at least two nodes in the network.") 
         try:
-
-          
-          self.__establish_comm__(self.successor).set_predecessor(setPredecessorRequest(ip_addr = self.predecessor)) 
-          self.__establish_comm__(self.predecessor).set_successor(setPredecessorRequest(ip_addr = self.successor)) 
-          
-          
-        
+          self.__establish_comm__(self.successor).set_predecessor(setPredecessorRequest(ip_addr = self.predecessor))  #successor.predecessor = self.predecessor
+          self.__establish_comm__(self.predecessor).set_successor(setPredecessorRequest(ip_addr = self.successor)) #predecessor.successor = self.successor 
           leaving_node_data = self.chordDb.fetch_and_delete_data()
           with grpc.insecure_channel(self.successor+":50051") as channel:
                      client = chordprot_pb2_grpc.DataTransferStub(channel)
                      dt = map(lambda scientist: CompScientistData(Surname = scientist.get("surname"),
                                                              Education = scientist.get("education"),
                                                              Awards = scientist.get("awards"),
-                                                             Hash = scientist.get("hash_value")),leaving_node_data)
+                                                             Hash = scientist.get("hash_value")), leaving_node_data)
 
-                     client.store(DataTransferRequest(data = dt)) #trans fer data from leaving node to leaving node's successor
-          self.fix_others() # updating the finger tables of nodes  affected by the leave of current node
-          self.successor = None
-          self.predecessor = None
-          self.FT = None
+                     client.store(DataTransferRequest(data = dt)) #transfer data from leaving node to leaving node's successor
+          self.logger.debug(f"Proceeding with the call to fix_others().")
+          self.fix_others() #updating the finger tables of nodes affected by the leave of current node
+          self.successor = None #clear the successor value of leaving node
+          self.predecessor = None #clear the predecessor value of leaving node
+          self.FT = None #clear the finger table's values of leaving node
           print(f"Successful completion of leave().")
         
         except grpc.RpcError as e:
@@ -249,17 +276,41 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
         return LeaveResponse(num_hops = 8)
            
     def request_data(self, request: JoiningNodeKeyRequest, context) -> DataTransferResponse:
-            try:
-              joining_node_data = self.chordDb.fetch_and_delete_data(threshold = int(request.node_id))
-              dt = map(lambda scientist: CompScientistData(Surname = scientist.get("surname"),
-                                                             Education = scientist.get("education"),
-                                                             Awards = scientist.get("awards"),
-                                                             Hash = scientist.get("hash_value")),joining_node_data)
-              return DataTransferResponse(data = dt)
-            except  Exception as e:
-                self.logger.error(f"Error occured during retrieval of joining node data: {e}")
-                response = DataTransferResponse()
-                return response
+        """
+        request_data
+        ============
+        
+        Responds to a data transfer request from a joining node.
+
+        Args:
+          request (JoiningNodeKeyRequest): gRPC request containing the joining node's key.
+          context: The context object for the gRPC call.
+
+        Note:
+          The function retrieves data from the local database associated with the joining node's key and transfers it as a response.
+          The data transfer includes information such as Surname, Education, Awards, and HashValue for each scientist's record.
+        
+        Returns:
+          DataTransferResponse: The response containing data to be transferred to the joining node.
+          
+        Raises:
+          Exception: If an error occurs during the retrieval of joining node data.
+        
+        """
+      
+        try:
+          joining_node_data = self.chordDb.fetch_and_delete_data(threshold = int(request.node_id))
+          print(f"The data corresponding to the joining node(node {request.node_id}) has been successfully retrieved from the local database of node {self._own_key()}.")
+          dt = map(lambda scientist: CompScientistData(Surname = scientist.get("surname"),
+                                                          Education = scientist.get("education"),
+                                                          Awards = scientist.get("awards"),
+                                                          Hash = scientist.get("hash_value")),joining_node_data)
+          return DataTransferResponse(data = dt)
+        except  Exception as e:
+            self.logger.error(f"Error occured during retrieval of joining node data: {e}")
+            response = DataTransferResponse()
+            return response
+          
 
     def init_finger_table(self, ip_addr: str) -> None:
         '''
@@ -270,7 +321,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
         by making gRPC calls to other nodes in the Chord network.
 
         Args:
-          ip_addr (str): The IP address of the node to contact for starting the initialization of the finger table.
+          ip_addr(str): The IP address of the node to contact for starting the initialization of the finger table.
 
         Note:
           This method updates the finger table entries based on information retrieved from other nodes
@@ -318,10 +369,27 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
     
     
     def fix_others(self) -> None:
+      '''
+      fix_others
+      ==========
+      Initiates the process of fixing the finger tables of other nodes in the Chord network affected by the departure of a new(eq: the current) node.
+      This method iterates through the finger table entries of the current node and makes gRPC calls
+      to the appropriate predecessor nodes of those entries in order to update their finger tables. 
+      The goal is to propagate the influence of the new node's entry throughout the network, ensuring consistency in the finger tables of other nodes that may be affected.
       
+      Note:
+          The departure of a node can potentially change the value of the .node | .node_ip_address(successor information) field in the finger tables 
+          of other nodes in the network. As a consequence, node n will need to be replaced into the finger tables of some existing nodes with its successor value. 
+          The general rule is:
+          -> The successor of node n will become the ith finger.node|.node_ip_address value of node k iff
+             {k precedes n by at least 2^(i-1) AND the ith finger.node value on node k is equal to n}
+             
+      Returns:
+        None
+      
+      '''
       for i in range(len(self.FT.FT)):
         print(f"Calling find_predecessor() from fix_others() with key_id: {(self._own_key() - (2**i)) % (2**len(self.FT.FT))}") 
-        #WARNING: the plus one solves the previous problem.
         ip_addr = self.find_predecessor((self._own_key() - (2**i) + 1) % (2**len(self.FT.FT)))
         print(f"Returned node from find_predecessor(): {ip_addr} | {self._hash_(ip_addr) % (2**len(self.FT.FT))}")
         join_rq = JoinRequest(ip_addr = self.ip_addr)
@@ -329,13 +397,38 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
         #tradeoff send bigger messages vs pay the find_successor call in fin_finger_table()
         self.__establish_comm__(ip_addr).fix_finger_table(FixFingerRequest(join_req = join_rq, successor_ip_addr = self.successor, index = i))  
     
+    
+    
     def fix_finger_table(self, request, context) -> chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty():
+      '''
+      fix_finger_table
+      ================
+      
+      Fix the finger table entry of the corresponding node based on a gRPC request from other node.
+
+      Args:
+        request: gRPC request containing the IP address of the node that made the request and whose value 
+        will be checked to determine whether a change in the finger table is needed. It also contains the index of the 
+        corresponding entry in the finger table and the requested node's successor.
+        context: The gRPC context.
+
+      Note:
+        This method is called recursively to ensure the consistency of the finger table across the Chord network.
+        It evaluates the appropriate conditions to determine if an update is necessary and makes appropriate updates to the
+        finger table entry. The recursion continues until the conditions are satisfied or the appropriate finger
+        table entry is updated.
+
+      
+      Returns:
+        chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty: An empty response. 
+      
+      '''
       s = self._hash_(request.join_req.ip_addr) % (2**len(self.FT.FT))
       successor_node_id = self._hash_(request.successor_ip_addr) % (2**len(self.FT.FT))
-      print(f"Callee Node: {self._own_key()}, caller node: {request.join_req.ip_addr} | {s}, enters the fix_finger_table().")
+      print(f"Node {self._own_key()}, calling from node {request.join_req.ip_addr} | {s}, enters the fix_finger_table().")
       
       if self.FT.FT[request.index][1] == s:
-        self.logger.debug(f"Finger[i].node updates its value from {self.FT.FT[request.index][1]} to { successor_node_id }.")
+        self.logger.debug(f"Finger[i].node updates its value from {self.FT.FT[request.index][1]} to {successor_node_id}.")
         self.FT.FT[request.index] = (self.FT.FT[request.index][0], successor_node_id, request.successor_ip_addr) 
         p = self.predecessor
         join_rq = JoinRequest(ip_addr = request.join_req.ip_addr)
@@ -433,8 +526,6 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
         
         return chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty()
             
-        
-
 
     def find_successor(self, request: SuccessorRequest, context) -> SuccessorResponse:
         '''
@@ -529,6 +620,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
                    
         self.logger.debug(f"The execution of find_predecessor() has been completed successfully.")    
         return mirror_node[0] 
+      
 
     def closest_preceding_finger(self, request: SuccessorRequest, context) -> SuccessorResponse:
         '''
@@ -557,8 +649,49 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
             if self._in_between_(self._own_key() + 1, request.key_id, self.FT.FT[i][1]):
                 return SuccessorResponse(node_id = self.FT.FT[i][1], ip_addr = self.FT.FT[i][2])         
         return SuccessorResponse(node_id = self._own_key(), ip_addr = self.ip_addr)
+      
             
-     
+    def store(self, request: DataTransferRequest, context)-> chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty():
+      '''
+      store
+      =====
+      
+      Stores data received from another node in the Chord network.
+
+      Args:
+          request(DataTransferRequest): A request containing the data to be stored.
+          context: The context of the gRPC communication.
+      
+      Note:
+        This method stores data received from another node in the Chord network. The data is first converted
+        to a dictionary representation using Protocol Buffers' `MessageToDict` function.
+        The method attempts to write the data to the node's database (`chordDb`). If the data is successfully
+        stored, it sets the gRPC context code to OK and logs a success message. Otherwise, it sets the context
+        code to INVALID_ARGUMENT.
+
+        If any exception occurs during the process, an error message is logged.
+      
+      Returns:
+        chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty: An empty response.
+      
+      
+      '''
+      dict_repr = MessageToDict(request, including_default_value_fields = True)
+      print(f"The data sent for storage: {dict_repr}")
+      
+      try:
+        
+        self.chordDb.write_disk()
+        if self.chordDb.store_data(dict_repr['data']): 
+           context.set_code(grpc.StatusCode.OK)
+           self.logger.info(f"Successfully stored data to node {self.ip_addr}")
+        else: 
+          context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+      except Exception as e:
+          self.logger.error(f"Error while storing data: {e}")
+      
+      return chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty() 
+    
         
     def get_successor(self, request, context) -> SuccessorResponse:
         '''
@@ -581,6 +714,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
            
         '''
         return  SuccessorResponse(node_id = self._hash_(self.successor) % (2**len(self.FT.FT)) , ip_addr = self.successor)
+      
     
     def get_predecessor(self, request, context) -> SuccessorResponse:
         '''
@@ -603,6 +737,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
           
         '''
         return SuccessorResponse(node_id = self._hash_(self.predecessor) % 2**len(self.FT.FT), ip_addr = self.predecessor)
+      
       
     def set_successor(self, request: setPredecessorRequest, context)-> chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty():
         '''
@@ -628,6 +763,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
         self.FT.FT[0] = (self.FT.FT[0][0], self._hash_(request.ip_addr) % 2**len(self.FT.FT), request.ip_addr)
         return chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty()
         
+        
     def set_predecessor(self, request: setPredecessorRequest, context) -> chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty(): 
         '''
         set_predecessor
@@ -648,7 +784,6 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
         '''  
         self.predecessor = request.ip_addr
         return chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty() 
-    
     
     
     def _in_between_(self, node_id_lobound, node_id_upbound, key_id) -> bool:
@@ -678,6 +813,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
         rewind_condition = node_id_lobound > node_id_upbound and key_id in chain(range(node_id_lobound, 2**(len(self.FT.FT)) + 1), range(0,node_id_upbound))
         
         return basic_condition or rewind_condition
+      
 
     def _hash_(self, data) -> int:
         '''
@@ -698,7 +834,8 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
         '''
         sha256 = hashlib.sha256()
         sha256.update(data.encode('utf-8'))
-        return int(sha256.hexdigest(),16)
+        return int(sha256.hexdigest(), 16)
+      
 
     def _own_key(self) -> int:
         '''
@@ -718,28 +855,30 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
         '''
         return self._hash_(self.ip_addr) % 2**len(self.FT.FT)
 
-    def store(self, request: DataTransferRequest, context)-> chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty():
-      dict_repr = MessageToDict(request, including_default_value_fields = True)
-
-      try:
-        #create .dbs to disk so that you can store data.
-        self.chordDb.write_disk()
-        #careful pass a list of dictionaries containing the data
-        if self.chordDb.store_data(dict_repr['data']): 
-           context.set_code(grpc.StatusCode.OK)
-           self.logger.info(f"Successfully stored data to node {self.ip_addr}")
-        else: 
-          context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
-      except Exception as e:
-          self.logger.error(f"Error while storing data: {e}")
-      
-      print(f"request: {dict_repr}") 
-      return chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty()
     
     def __establish_comm__(self, rpc_caller: str) -> None:
-        channel = grpc.insecure_channel(str(rpc_caller)+":50051")
-        self.stub = chordprot_pb2_grpc.ChordStub(channel)
-        return self.stub
+      '''
+      __establish_comm__
+      ==================
+      
+      Establishes a gRPC communication channel with the specified node.
+
+      Args:
+        rpc_caller(str): The IP address of the node to establish communication with.
+
+      Note:
+        This method is used to establish a gRPC communication channel with the node specified
+        by the 'rpc_caller' parameter. It creates an insecure gRPC channel and returns the corresponding
+        gRPC stub, which can be used for making gRPC calls to the specified node.
+      
+      Returns:
+          chordprot_pb2_grpc.ChordStub: The gRPC stub for communication with the specified node.
+      
+      '''
+      channel = grpc.insecure_channel(str(rpc_caller)+":50051")
+      self.stub = chordprot_pb2_grpc.ChordStub(channel)
+      return self.stub
+
 
 def print_fun(signum, frame) -> None:
     print(f"The final version of node's {node.ip_addr}(Hash value: {node._own_key()} | Predecessor: {node.predecessor}) Finger Table(FT) is: \n{node.FT}")

@@ -1,7 +1,7 @@
 import grpc
 import logging
-from ChordNodeCode.chordprot_pb2_grpc import ChordStub, DataTransferStub
-from ChordNodeCode.chordprot_pb2 import (
+from generatedStubs.chordprot_pb2_grpc import ChordStub, DataTransferStub
+from generatedStubs.chordprot_pb2 import (
     SuccessorRequest,
     CompScientistData,
     DataTransferRequest

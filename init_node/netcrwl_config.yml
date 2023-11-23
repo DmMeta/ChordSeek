@@ -1,9 +1,9 @@
 chord:
     network_var: "NET_NAME"
-    container_var: "CONTAINER_ID"
-    replicas_var: "NODE_REPLICAS" 
-    data_vol_path: "./init_node/ChordNodeCode/Data"
+    container_var: "CNAME"
+    exp: "EXPONENT"
 
+data_cache: "DATA_PRESENT"
 crawler:
     englishalph_cardinality: 26
     user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)  Edg/118.0.2088.61"
