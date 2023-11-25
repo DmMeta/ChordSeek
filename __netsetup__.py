@@ -1,9 +1,12 @@
 import docker
 import yaml
 import os
+import sys
 from grpc_tools import protoc
 from python_on_whales import DockerClient
 from subprocess import call
+from rich.console import Console
+from time import sleep
 
 def setup_docker_net(client, chordname: str, networkOptions: dict): 
     '''
@@ -33,10 +36,10 @@ def setup_docker_net(client, chordname: str, networkOptions: dict):
 
         
         if len(docker_network) > 0:
-            print(f"Network: {chordname} already exists. Proceeding...")
+            #print(f"Network: {chordname} already exists. Proceeding...")
             return docker_network[0]
     
-        print(f"Network: {chordname} does not exist. Creating...")
+        #print(f"Network: {chordname} does not exist. Creating...")
         ipam_pool = docker.types.IPAMPool(
             subnet = networkOptions['subnet'],
             gateway =  networkOptions['gateway'],
@@ -81,9 +84,10 @@ def setup_docker_volumes(client,volumes,paths):
 
         for volume,path in zip(volumes,paths):
             if volume in map(lambda vol: vol.name,docker_volumes):
-                 print(f"Volume: {volume} already exists. Proceeding...")
+                 #print(f"Volume: {volume} already exists. Proceeding...")
+                 pass
             else:
-                print(f"Volume: {volume} wasn't found. Creating...")
+                #print(f"Volume: {volume} wasn't found. Creating...")
                 client.volumes.create(name = volume, 
                                       driver = "local",
                                       driver_opts = {"type":"none", 
@@ -94,6 +98,8 @@ def setup_docker_volumes(client,volumes,paths):
     except docker.errors.APIError as e:
         print(f"Error occured while creating the volumes: {e}")
 
+with open(os.path.join("./","project_config.yml"),'r') as config:
+    project_config = yaml.load(config, Loader = yaml.FullLoader)
 
 def setup_network()-> None:
     '''
@@ -114,9 +120,13 @@ def setup_network()-> None:
         None
     
     '''
-    
-    with open(os.path.join("./","project_config.yml"),'r') as config:
-         project_config = yaml.load(config, Loader = yaml.FullLoader)
+    console = Console()
+    if os.path.exists(project_config['environment_file']):
+        with open(project_config['environment_file'], "r") as environment_file:
+            data = yaml.safe_load(environment_file)
+            if data['CHORD_INIT'] == 'true':
+                console.status("[orange3]"f"Chord network is already configured. Proceeding...")
+                return
     
     client = docker.from_env()
     
@@ -124,14 +134,14 @@ def setup_network()-> None:
     
     setup_docker_volumes(client, project_config['volumes']['names'], project_config['volumes']['paths'])
 
-    print(f"Compiling protobuffer. Proceeding...")
+    #print(f"Compiling protobuffer. Proceeding...")
 
 
     try:
         
-        generated_stubs_path = os.path.join(os.getcwd(), project_config['protobuffer']['path'],"generated")
+        generated_stubs_path = os.path.join(os.getcwd(), project_config['protobuffer']['path'], "generated")
         if not os.path.exists(generated_stubs_path):
-            print(f"Generating stubs in {generated_stubs_path}")
+            #print(f"Generating stubs in {generated_stubs_path}")
             os.makedirs(generated_stubs_path) #TODO: fix cwd()
         
 
@@ -149,10 +159,15 @@ def setup_network()-> None:
             return_code_touch = call(f"touch {os.path.join('.',project_config['volumes']['paths'][3], '__init__.py')}", shell = True)
             return_code_sed = call(f"sed -i 's/import chordprot_pb2 as chordprot__pb2/from . import chordprot_pb2 as chordprot__pb2/' \
                                {os.path.join('.',project_config['volumes']['paths'][3],'chordprot_pb2_grpc.py')}", shell = True)
+            
+            # chordprot_pb2 = import_module(".chordprot_pb2", package = "protobufs.generated")
+            # chordprot_pb2_grpc = import_module(".chordprot_pb2_grpc", package = "protobufs.generated")
+            
         
         else:
-            print(f"Protobuffer is already compiled and stubs are present in {generated_stubs_path}")
-    
+           
+            #print(f"Protobuffer is already compiled and stubs are present in {generated_stubs_path}")
+            pass
         #print(chord_network.containers)
 
         env_variables_size = len(project_config['compose']['variables'])
@@ -161,26 +176,40 @@ def setup_network()-> None:
                 os.environ[key] = str(val)
             else:
                 db_files = [db for db in os.listdir(os.path.join(project_config['volumes']['paths'][0])) if db.endswith(".db")]
-                print(len(db_files) > 0)
+                #print(len(db_files) > 0)
                 os.environ[key] = "hit" if len(db_files) > 0 else "miss" 
         
         os.environ["NNAME"] = project_config['network_name']
         # for key,val in project_config['compose']['variables'].items():
-        #          print(f"{os.environ[key]}")
+        #           print(f"{os.environ[key]}")
                          
                 
-        #TODO: use python-on-whales lib https://gabrieldemarmiesse.github.io/python-on-whales/ to manage compose.
+
         whales_docker_client = DockerClient(compose_files = [project_config['compose']['path']], 
                                             compose_project_name = project_config['compose']['name'])
+
+        whales_docker_client.compose.up(recreate = True, detach = True, quiet = True)
+        with console.status("[bold yellow]"f"Previous configuration for chord network was not found. Shooting up..."):
+            sleep(2)
+            while init_info:=client.containers.get("init_node").attrs['State']['Status'] == 'running':
+                # print(client.containers.get("init_node").logs(follow = True, stream = True))
+                # for el in client.containers.get("init_node").logs(follow = True, stream = True):
+                #     print(el)
+                pass
+            else:
+                console.status("[bold green3]"f"Initilization of the chord network has been completed successfully. Proceeding...")
+                
+                
         
-        whales_docker_client.compose.up(recreate = True, detach = False, quiet = False)
-       
-        
+        with open(project_config['environment_file'],"w") as modified_project_config:
+             yaml.dump({"CHORD_INIT":"true"}, modified_project_config)
             
     except KeyError as e:
         print(f"Failed setting environement variables properly. Error: {e}")
     except os.error as e:
         print(f"Failed listing directory with database files. Error: {e}")
+    except ImportError as e:
+        print(f"Failed to import generated Stubs. Error: {e}")
     except Exception as e:
         print(f"Error: {e}")
 
@@ -191,3 +220,5 @@ def setup_network()-> None:
 
 if __name__ == '__main__':
     setup_network()
+    
+    
