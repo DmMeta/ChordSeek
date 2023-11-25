@@ -77,24 +77,37 @@ message DataTransferRequest {
 
 message RangeQueryRequest {
     string university = 1;
-    optional uint32 max_awards = 2;
+    optional uint32 max_awards = 2; //maybe min_awards?
 }
 
 
 message JoiningNodeKeyRequest {
-    
     uint32 node_id = 1;
-    
 }
 
 message DataTransferResponse {
     repeated CompScientistData data = 1;
 }
 
+message FingerTableRecord{
+    uint32 start = 1;
+    uint32 node = 2;
+    string node_ip = 3;
+
+}
+
+message FingerTableResponse {
+    repeated FingerTableRecord data = 1; 
+}
+
+
+
 
 service DataTransfer {
     rpc store (DataTransferRequest) returns (google.protobuf.Empty);
     rpc request_data (JoiningNodeKeyRequest) returns (DataTransferResponse);
+    rpc get_data (RangeQueryRequest) returns (DataTransferResponse);
+    rpc get_finger_table (google.protobuf.Empty) returns (FingerTableResponse);
 }
     
 
