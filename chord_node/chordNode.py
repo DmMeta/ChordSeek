@@ -13,6 +13,9 @@ from generatedStubs.chordprot_pb2 import (
     JoiningNodeKeyRequest,
     DataTransferResponse,
     FixFingerRequest,
+    RangeQueryRequest,
+    FingerTableResponse,
+    FingerTableRecord,
     CompScientistData
 ) 
  
@@ -32,12 +35,13 @@ from time import sleep
 import signal
 from google.protobuf.json_format import MessageToDict
 from chordDb import chordDb
+# from hopsCounter import HopsCounterInterceptor
 
 class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransferServicer):
     '''
     A class that models the entity of a node in the Chord network. 
     The functionality includes behavior both as a client (sending requests) 
-    and as a server (receiving requests).
+    and as a server (receiving requests).  
     
     '''
     @dataclass
@@ -128,7 +132,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
           None
           
         '''
-        server = grpc.server(ThreadPoolExecutor(max_workers=4))
+        server = grpc.server(ThreadPoolExecutor(max_workers=4), interceptors = [])
         chordprot_pb2_grpc.add_ChordServicer_to_server(self, server)
         chordprot_pb2_grpc.add_DataTransferServicer_to_server(self,server)
         server.add_insecure_port('[::]:50051')
@@ -310,8 +314,47 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
             self.logger.error(f"Error occured during retrieval of joining node data: {e}")
             response = DataTransferResponse()
             return response
-          
+    
+    def get_data(self, request: RangeQueryRequest, context) -> DataTransferResponse:
+        """
+        get_data
+        ========
+        
+        Retrieves data from the local database based on a range query.
+        
+        The function queries the local database for scientists with the specified university and awards threshold(minimum number of awards).
+        The retrieved data is then transferred as a response to the requested node.
 
+        Args:
+          request (RangeQueryRequest): gRPC request containing information(university, minimum number of awards) about the range query.
+          context: The context object for the gRPC call.
+
+        Raises:
+          Exception: If an error occurs during the retrieval of range query response data.
+        
+         Returns:
+          DataTransferResponse: The response containing data that matches the range query criteria.
+
+        """
+      
+        try:
+          range_query_response_data = self.chordDb.fetch_data(education = request.university, 
+                                                              awards_threshold =  int(request.max_awards))
+          print(f"The data corresponding to the requested range query has been successfully retrieved from the local database of node {self._own_key()}.")
+          dt = map(lambda scientist: CompScientistData(Surname = scientist.get("surname"),
+                                                          Education = scientist.get("education"),
+                                                          Awards = scientist.get("awards")
+                                                          ), range_query_response_data)
+          return DataTransferResponse(data = dt)
+        except  Exception as e:
+            self.logger.error(f"Error occured during retrieval of range query response data: {e}")
+            response = DataTransferResponse()
+            return response
+          
+    def get_finger_table(self, request, context)-> FingerTableResponse:
+        ft_records = [FingerTableRecord(start = entry[0], node = entry[1], node_ip = entry[2]) for entry in self.FT.FT]
+        return FingerTableResponse(data = ft_records)
+        
     def init_finger_table(self, ip_addr: str) -> None:
         '''
         init_finger_table   
@@ -887,13 +930,13 @@ def print_fun(signum, frame) -> None:
 node = ChordNode()
 if __name__ == '__main__':
     print(f"{'=='*5} Starting Node Process {'=='*5}\nIp address: {node.ip_addr}")
-    print(f"Computed values of 'start' field at FT: ")
+    print(f"Computed values of 'start' field at FT:  ")
     for el in node.FT.FT:
          print(el)
     print("-----\n-----")
     signal.signal(signal.SIGUSR1, print_fun)
     # printing_ft_process = Process(target = print_fun) 
-    node.serve()
+    node.serve() 
             
 
 
