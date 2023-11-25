@@ -25,3 +25,5 @@ compose:
               NODE_REPLICAS: 32
               IDENT_SPACE_EXP: 11
               DB_PRESENT: 
+
+environment_file: "__env__.yml"
