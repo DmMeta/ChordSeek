@@ -208,8 +208,16 @@ class chordDb:
                 data = [dict(zip(columns, row)) for row in self.cursor.fetchall()]
                 self.logger.debug(f"Successfully fetched data from the database.")
                 
-                self.cursor.execute("DELETE FROM data_records")
-                self.connection.commit()
+                result = run(f"rm {os.path.join('./Data', self.db_name)}", 
+                             shell = True, 
+                             capture_output = True, 
+                             text = True)
+
+                if result.returncode == 0: 
+                    self.logger.debug(f"Successfully deleted database before leave.")
+                else:
+                    self.logger.error(f"Error occurred on deletion of databse with code: {result.returncode}")
+                    self.logger.error(f"Error: {result.stderr}")
 
                 return data
 
