@@ -1,3 +1,6 @@
 *pb2*
 *.db
 __pycache__*
+dhtChordVenv/*
+old_files/*
+TODO.md
