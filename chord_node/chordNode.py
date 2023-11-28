@@ -16,6 +16,7 @@ from generatedStubs.chordprot_pb2 import (
     RangeQueryRequest,
     FingerTableResponse,
     FingerTableRecord,
+    HopsResponse,
     CompScientistData
 ) 
  
@@ -35,13 +36,13 @@ from time import sleep
 import signal
 from google.protobuf.json_format import MessageToDict
 from chordDb import chordDb
-# from hopsCounter import HopsCounterInterceptor
+from hopsCounter import HopsCounterInterceptor
 
 class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransferServicer):
     '''
     A class that models the entity of a node in the Chord network. 
     The functionality includes behavior both as a client (sending requests) 
-    and as a server (receiving requests).  
+    and as a server (receiving requests).    
     
     '''
     @dataclass
@@ -117,6 +118,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
         self.predecessor = None
         self.chordDb = chordDb()
         self.stub = None
+        self.hopCounter = HopsCounterInterceptor()
         logging.basicConfig(level = logging.DEBUG)
         self.logger = logging.getLogger(__name__)
         
@@ -132,7 +134,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
           None
           
         '''
-        server = grpc.server(ThreadPoolExecutor(max_workers=4), interceptors = [])
+        server = grpc.server(ThreadPoolExecutor(max_workers=4), interceptors = [self.hopCounter])
         chordprot_pb2_grpc.add_ChordServicer_to_server(self, server)
         chordprot_pb2_grpc.add_DataTransferServicer_to_server(self,server)
         server.add_insecure_port('[::]:50051')
@@ -190,6 +192,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
             print(f"Successor of joining_node after init_finger_table(): IP Address -> {self.successor}, Hash Value -> {self._hash_(self.successor) % (2**len(self.FT.FT))}")
             self.logger.debug(f"Proceeding with the call to update_others().")
             self.update_others()
+            self.hopCounter.reset_hops()
             if(request.transfer_data):
               try:
                   print(f"The joininig_node is not a part of the initial Chord network ring. A potential transfer of data from the successor is required.")
@@ -898,6 +901,10 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
         '''
         return self._hash_(self.ip_addr) % 2**len(self.FT.FT)
 
+    def clear_hops(self, request, context) -> HopsResponse:
+      hops = self.hopCounter.hops
+      self.hopCounter.reset_hops()
+      return HopsResponse(num_hops = hops)
     
     def __establish_comm__(self, rpc_caller: str) -> None:
       '''
@@ -922,9 +929,10 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
       self.stub = chordprot_pb2_grpc.ChordStub(channel)
       return self.stub
 
+  
 
 def print_fun(signum, frame) -> None:
-    print(f"The final version of node's {node.ip_addr}(Hash value: {node._own_key()} | Predecessor: {node.predecessor}) Finger Table(FT) is: \n{node.FT}")
+    print(f"The final version of node's {node.ip_addr}(Hash value: {node._own_key()} | Predecessor: {node.predecessor}) Finger Table(FT) is: \n{node.FT}\nHops: {node.hopCounter.hops}")
     
 #used global for debugging
 node = ChordNode()
