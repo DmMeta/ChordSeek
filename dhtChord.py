@@ -42,7 +42,6 @@ def lookup(university: str, awards: int):
     try:
         if awards < 0:
             raise ValueError
-        
         console = Console() 
         key_value = hash(university)
         network = _dnet_inspect() #TODO: maybe we want active_chord, not network. 
@@ -216,7 +215,7 @@ def join():
     try:
         network = _dnet_inspect()
         container = client.containers.run(
-            'chord_node:v1.0',
+            'chord_node:v1.0',           
             detach = True,
             network = project_config['network_name'],
             name = f"chord-chordNode-{len(network)+1}",
@@ -299,6 +298,8 @@ def leave(node_ip = None):
                 
             
             chord_net.disconnect(random_container)
+            random_container.stop()
+            random_container.remove()
             console.print(f"[bold green]Successful leave of selected node.")
         except KeyError as e:
             print(f"key error: {e}")
