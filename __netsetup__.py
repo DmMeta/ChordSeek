@@ -125,7 +125,8 @@ def setup_network()-> None:
         with open(project_config['environment_file'], "r") as environment_file:
             data = yaml.safe_load(environment_file)
             if data['CHORD_INIT'] == 'true':
-                console.status("[orange3]"f"Chord network is already configured. Proceeding...")
+                with console.status("[bold orange3]"f"Chord network is already configured. Proceeding..."):
+                  sleep(1)
                 return
     
     client = docker.from_env()
