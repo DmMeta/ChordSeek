@@ -44,7 +44,9 @@ message setPredecessorRequest {
     string ip_addr = 1;
 }
 
-
+message HopsResponse {
+    uint32 num_hops = 1;
+}
 
 
 
@@ -59,6 +61,7 @@ service Chord {
     rpc get_successor (google.protobuf.Empty) returns (SuccessorResponse);
     rpc update_finger_table (FingerUpdateRequest) returns (google.protobuf.Empty);
     rpc fix_finger_table (FixFingerRequest) returns (google.protobuf.Empty);
+    rpc clear_hops(google.protobuf.Empty) returns (HopsResponse);   
     
 }
 
