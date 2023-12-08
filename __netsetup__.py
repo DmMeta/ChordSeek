@@ -166,9 +166,8 @@ def setup_network()-> None:
             
         
         else:
-           
-            #print(f"Protobuffer is already compiled and stubs are present in {generated_stubs_path}")
             pass
+            #print(f"Protobuffer is already compiled and stubs are present in {generated_stubs_path}")
         #print(chord_network.containers)
 
         env_variables_size = len(project_config['compose']['variables'])
@@ -198,7 +197,10 @@ def setup_network()-> None:
                 #     print(el)
                 pass
             else:
-                console.status("[bold green3]"f"Initilization of the chord network has been completed successfully. Proceeding...")
+                pass
+        with console.status("[bold green3]"f"Initilization of the chord network has been completed successfully. Proceeding..."):
+            sleep(1)
+                
                 
                 
         

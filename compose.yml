@@ -41,7 +41,7 @@ services:
             - /bin/bash 
             - -c 
             - |
-              python3 initilization.py
+              python3 initialization.py
       environment:
         - DATA_PRESENT=${DB_PRESENT}
         - CNAME=init_node
