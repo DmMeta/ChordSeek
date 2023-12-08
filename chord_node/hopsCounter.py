@@ -12,6 +12,7 @@ class HopsCounterInterceptor(ServerInterceptor):
                             "leave", "request_data", "get_finger_table", "store","clear_hops"]
 
         excluded_methods = list(map(lambda method: f"/chordprot.Chord/{method}", excluded_methods))
+        
         if handler_call_details.method not in excluded_methods:
             print(f"Method called: {handler_call_details.method}")
             self.hops += 1
