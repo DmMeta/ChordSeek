@@ -37,7 +37,7 @@ class ChordInitialization:
 
         self.network = self._dnet_inspect()
         self.active_chord = list()
-        self.hops = 0
+        
 
     def _dnet_inspect(self):
         client = docker.from_env()
@@ -48,7 +48,7 @@ class ChordInitialization:
 
             for key,value in containers.items():
                 if key != self.container_id:
-                    network.append((value["Name"],value["IPv4Address"].split("/")[0]))
+                    network.append((value["Name"], value["IPv4Address"].split("/")[0]))
 
         except docker.errors.APIError as e:
             print(f"The {self.netname} docker network wasn't found. Critical failure...")
@@ -59,8 +59,7 @@ class ChordInitialization:
         
         print(f"Initial hosts in network: {len(self.network)}")
         network_size = len(self.network)
-
-        #shuffle(self.network)
+        shuffle(self.network)
         elected_host = self.network.pop()
         print(f"Election begins...")
         sleep(1.5)
@@ -68,20 +67,20 @@ class ChordInitialization:
         channel = grpc.insecure_channel(elected_host[0]+":50051")
         
         client = ChordStub(channel)
-        self.hops = client.join(JoinRequest(ip_addr = elected_host[1], init = True)).num_hops
+        client.join(JoinRequest(ip_addr = elected_host[1], init = True))
         self.active_chord.append(elected_host)
 
-        for i in range(network_size - 7): 
-            #shuffle(self.network)
+        for i in range(network_size - 1): 
+            shuffle(self.network)
             arbitary_node = self.active_chord[randint(0, len(self.active_chord) - 1)] 
             print(arbitary_node)
             elected_host = self.network.pop()
             print(f"[{i}]: Election begins...")
-            # sleep(0.3)
+            sleep(0.3)
             print(f"[{i}]: Elected Node for initilization: {elected_host}")
             channel = grpc.insecure_channel(elected_host[1]+":50051")
             client = ChordStub(channel)
-            self.hops = self.hops + client.join(JoinRequest(ip_addr = arbitary_node[1])).num_hops
+            client.join(JoinRequest(ip_addr = arbitary_node[1]))
             self.active_chord.append(elected_host)
 
 

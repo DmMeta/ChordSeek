@@ -11,13 +11,7 @@ message JoinRequest {
     optional bool transfer_data = 3;
 }
 
-message JoinResponse {
-    uint32 num_hops = 1;
-}
 
-message LeaveResponse {
-    uint32 num_hops = 1;
-}
 
 message SuccessorRequest{
     uint32 key_id = 1;
@@ -53,8 +47,8 @@ message HopsResponse {
 
 
 service Chord {
-    rpc join (JoinRequest) returns (JoinResponse);
-    rpc leave (google.protobuf.Empty) returns (LeaveResponse);
+    rpc join (JoinRequest) returns (google.protobuf.Empty);
+    rpc leave (google.protobuf.Empty) returns (google.protobuf.Empty);
     rpc find_successor (SuccessorRequest) returns (SuccessorResponse);
     rpc closest_preceding_finger (SuccessorRequest) returns (SuccessorResponse);
     rpc set_predecessor (setPredecessorRequest) returns (google.protobuf.Empty);
@@ -104,12 +98,6 @@ message FingerTableRecord{
 message FingerTableResponse {
     repeated FingerTableRecord data = 1; 
 }
-
-message DataTransferResponse {
-    repeated CompScientistData data = 1;
-}
-
-
 
 
 service DataTransfer {

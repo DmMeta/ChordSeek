@@ -2,8 +2,6 @@ from concurrent.futures import ThreadPoolExecutor
 import grpc
 
 from generatedStubs.chordprot_pb2 import (
-    JoinResponse,
-    LeaveResponse,
     JoinRequest,
     SuccessorRequest,
     SuccessorResponse,
@@ -143,7 +141,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
         server.wait_for_termination()
 
 
-    def join(self, request: JoinRequest, context) -> JoinResponse:
+    def join(self, request: JoinRequest, context) -> chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty():
         '''
         join
         ====
@@ -163,8 +161,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
           context: The context object for the gRPC call.
 
         Returns:
-          JoinResponse: The response indicating the success of the joining process and the required number of steps(number of hops) 
-          needed for the integration of the node into the network.
+          chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty: An empty response. 
 
         Note:
           If the 'init' flag is set to True in the request(indicating that the new node is the first one joining the network), 
@@ -183,10 +180,10 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
             self.predecessor = self.ip_addr
             self.successor = self.ip_addr
             self.logger.debug(f"Finger Table(FT) of init_node after init_finger_table(): \n {self.FT}")
-            return JoinResponse(num_hops = 1)
+            return chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty()
         else:
             print(f"Hash value of joining_node: {self._own_key()}")
-            self.init_finger_table(request.ip_addr) # passing  ip address
+            self.init_finger_table(request.ip_addr) # passing ip address
             self.logger.debug(f"Finger Table(FT) of joining_node after init_finger_table(): {self.FT}")
             print(f"Predecessor of joining_node after init_finger_table(): IP Address -> {self.predecessor}, Hash Value -> {self._hash_(self.predecessor) % (2**len(self.FT.FT))}")
             print(f"Successor of joining_node after init_finger_table(): IP Address -> {self.successor}, Hash Value -> {self._hash_(self.successor) % (2**len(self.FT.FT))}")
@@ -212,10 +209,10 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
                   self.logger.error(f"Error occured during the gRPC call: {e}")
               except Exception as e:
                   self.logger.error(f"Error occured: {e}")
-            return JoinResponse(num_hops = 2)
+            return chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty()
           
     
-    def leave(self, request, context) -> LeaveResponse:
+    def leave(self, request, context) -> chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty():
       '''
       leave
       =====
@@ -233,8 +230,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
              transfers data to its successor, updates finger tables and clears its own data, namely its successor, predecessor and finger table.
       
       Returns:
-        LeaveResponse: The response indicates the success of the leave process and the required number of steps(number of hops) 
-        needed for the departure of the node from the network. ?(αυτό λογικά θα αλλάξει με τους interceptors)
+        chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty: An empty response. 
         
       Raises:
         grpc.RpcError: If there is an error during the gRPC call.
@@ -251,7 +247,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
           self.chordDb.fetch_and_delete_data()
         except  Exception as e:
           self.logger.error(f"An error occurred during the leave of node {self._own_key()}.")
-        return LeaveResponse(num_hops = 5)
+        return chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty()
       
       else: 
         #case2: there are at least two nodes in the network
@@ -280,7 +276,7 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
         except  Exception as e:
           self.logger.error(f"An error occurred during the leave of node {self._own_key()}.")
         
-        return LeaveResponse(num_hops = 8)
+        return chordprot_pb2_grpc.google_dot_protobuf_dot_empty__pb2.Empty()
            
     def request_data(self, request: JoiningNodeKeyRequest, context) -> DataTransferResponse:
         """
@@ -355,8 +351,22 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
             return response
           
     def get_finger_table(self, request, context)-> FingerTableResponse:
-        ft_records = [FingerTableRecord(start = entry[0], node = entry[1], node_ip = entry[2]) for entry in self.FT.FT]
-        return FingerTableResponse(data = ft_records)
+      '''
+      get_finger_table
+      ================
+      
+      Retrieves the finger table and returns it as a response.
+
+      Parameters:
+        request: The request object containing any necessary information.
+        context: The context of the gRPC call.
+
+      Returns:
+        A FingerTableResponse containing the finger table data.
+      
+      '''
+      ft_records = [FingerTableRecord(start = entry[0], node = entry[1], node_ip = entry[2]) for entry in self.FT.FT]
+      return FingerTableResponse(data = ft_records)
         
     def init_finger_table(self, ip_addr: str) -> None:
         '''
@@ -931,18 +941,17 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
 
   
 
-def print_fun(signum, frame) -> None:
-    print(f"The final version of node's {node.ip_addr}(Hash value: {node._own_key()} | Predecessor: {node.predecessor}) Finger Table(FT) is: \n{node.FT}\nHops: {node.hopCounter.hops}")
+# def print_fun(signum, frame) -> None:
+#     print(f"The final version of node's {node.ip_addr}(Hash value: {node._own_key()} | Predecessor: {node.predecessor}) Finger Table(FT) is: \n{node.FT}\nHops: {node.hopCounter.hops}")
     
-#used global for debugging
-node = ChordNode()
 if __name__ == '__main__':
+    node = ChordNode()  
     print(f"{'=='*5} Starting Node Process {'=='*5}\nIp address: {node.ip_addr}")
     print(f"Computed values of 'start' field at FT:  ")
     for el in node.FT.FT:
          print(el)
     print("-----\n-----")
-    signal.signal(signal.SIGUSR1, print_fun)
+    # signal.signal(signal.SIGUSR1, print_fun)
     # printing_ft_process = Process(target = print_fun) 
     node.serve() 
             
