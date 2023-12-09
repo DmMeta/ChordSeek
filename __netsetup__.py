@@ -175,7 +175,10 @@ def setup_network()-> None:
             if index < env_variables_size - 1:
                 os.environ[key] = str(val)
             else:
-                db_files = [db for db in os.listdir(os.path.join(project_config['volumes']['paths'][0])) if db.endswith(".db")]
+                directory_path = os.path.join(project_config['volumes']['paths'][0])
+                if not os.path.exists(directory_path):
+                    os.makedirs(directory_path)
+                db_files = [db for db in os.listdir(os.path.join(directory_path)) if db.endswith(".db")]
                 #print(len(db_files) > 0)
                 os.environ[key] = "hit" if len(db_files) > 0 else "miss" 
         
