@@ -178,9 +178,11 @@ def setup_network()-> None:
                 directory_path = os.path.join(project_config['volumes']['paths'][0])
                 if not os.path.exists(directory_path):
                     os.makedirs(directory_path)
-                db_files = [db for db in os.listdir(os.path.join(directory_path)) if db.endswith(".db")]
-                #print(len(db_files) > 0)
-                os.environ[key] = "hit" if len(db_files) > 0 else "miss" 
+                    os.environ[key] = "miss"
+                else:
+                    db_files = [db for db in os.listdir(os.path.join(directory_path)) if db.endswith(".db")]
+                    #print(len(db_files) > 0)
+                    os.environ[key] = "hit" if len(db_files) > 0 else "miss" 
         
         os.environ["NNAME"] = project_config['network_name']
         # for key,val in project_config['compose']['variables'].items():
