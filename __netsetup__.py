@@ -92,7 +92,7 @@ def setup_docker_volumes(client,volumes,paths):
                                       driver = "local",
                                       driver_opts = {"type":"none", 
                                                      "o":"bind",
-                                                     "device": os.path.join(os.environ["PWD"],path)}) #TODO: fix in setuptool
+                                                     "device": os.path.join(os.environ["PWD"],path)}) 
 
 
     except docker.errors.APIError as e:
@@ -150,7 +150,7 @@ def setup_network()-> None:
                 (
                     "",
                     f"--proto_path={project_config['protobuffer']['path']}",
-                    f"--proto_path=dhtChordVenv/lib/python3.8/site-packages/grpc_tools/_proto/", #TODO: how on earth will that by dynamic?
+                    f"--proto_path=dhtChordVenv/lib/python3.8/site-packages/grpc_tools/_proto/", 
                     f"--python_out={generated_stubs_path}", 
                     f"--grpc_python_out={generated_stubs_path}",
                     f"{os.path.join(project_config['protobuffer']['path'],'chordprot.proto')}",

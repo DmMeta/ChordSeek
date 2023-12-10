@@ -35,10 +35,26 @@ Before using ChordSeek, ensure you have Docker installed and that your user is a
 - https://docs.docker.com/engine/install/linux-postinstall/
 - https://docs.docker.com/engine/install/
 
-As for the installation of the CLI tool you can simply:
+As for the installation of the CLI tool you must install the required libraries through requirements.txt,
+preferably in a virtual environment(e.g. using venv) as can be seen below:
 ```bash
-pip3 install ChordSeek
+# Navigate to project's root folder
+cd ChordSeek
+
+# Create the venv
+python3 -m venv dhtChordVenv
+
+# Activate the virtual environment
+# E.g. for an Ubuntu distribution: source dhtChordVenv/bin/activate
+
+pip3 install -r requirements.txt
 ```
+> [!CAUTION]  
+> **dhtChordVenv** should be the name of the virtual environment because of an unresolved dependency to the empty message definition for Google's protobuffers. A quick fix is specifying to protoc compiler the path where it would be naturally defined inside gRPC tools installation folder. For a virtual environment created with venv this was located at ***```[the name of your venv]/lib/python3.8/site-packages/grpc_tools/_proto/"```*** at the time of development.<br> This is hard coded in line ***153*** of [__netsetup__]:  
+``` 
+f"--proto_path=dhtChordVenv/lib/python3.8/site-packages/grpc_tools/_proto/"
+```
+Any fix better than the current one is a welcome addition.
 
 # Project Status
 
@@ -124,7 +140,8 @@ For the evaluation of the overall performance of the Chord lookup key operation,
 </figure>
 
 The results yielded the observation that the average number of hops per lookup is O(***logN***), where N is the number of nodes in the network. This observation validates the claim made in the original paper, supporting the efficiency of the Chord protocol in minimizing the traversal distance during key retrieval in large-scale networks. <br>
-***Caution***: Please note that the results were based in a small and uneven dataset.     
+> [!WARNING]  
+> Please note that the results were based in a small and uneven dataset.     
 
 ### Node Joining
 
@@ -220,3 +237,4 @@ Distributed under the [MIT] License. See `LICENSE.md` for more details.
 [Docker-link]: https://www.docker.com/
 [gRPC-link]: https://grpc.io/
 [MIT]: https://en.wikipedia.org/wiki/MIT_License
+[__netsetup__]: https://github.com/DmMeta/ChordSeek/blob/main/__netsetup__.py

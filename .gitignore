@@ -5,3 +5,4 @@ dhtChordVenv/*
 old_files/*
 TODO.md
 protobufs/generated/*
+__env__.yml
