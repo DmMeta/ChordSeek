@@ -29,6 +29,12 @@
 
 This project focuses on developing a Python CLI tool aiming to provide rapid range queries (logarithmic time complexity) and employed on a dataset consisting of famous computer scientists scraped from Wikipedia. 
 
+# Project Status
+
+The current project was carried out as a part of [CEID's][CEID-link] course "Decentralized Systems for Big Data Managment and Decision Making" taught by Prof. Spyros Sioutas. While the primary goal was to optimize time complexity, matters such as concurrency support and allowing for simultaneous handling of requests were not a central aspect in our implementation. As such, there are multiple areas that enhancements can be made, including but not limited to improving the web crawler's efficiency and adding concurrency support in terms of network's nodes sudden joins and leaves. 
+
+In the pursuit of self-improvement, any new suggestions, solutions and potential bug fixes are welcome.
+
 # Installation
 
 Before using ChordSeek, ensure you have Docker installed and that your user is added to the Docker group. You can follow the official detailed guides for these matters in the links below:
@@ -55,13 +61,6 @@ pip3 install -r requirements.txt
 f"--proto_path=dhtChordVenv/lib/python3.8/site-packages/grpc_tools/_proto/"
 ```
 Any fix better than the current one is a welcome addition.
-
-# Project Status
-
-The current project was carried out as a part of [CEID's][CEID-link] course "Decentralized Systems for Big Data Managment and Decision Making" taught by Prof. Spyros Sioutas. While the primary goal was to optimize time complexity, matters such as concurrency support and allowing for simultaneous handling of requests were not a central aspect in our implementation. As such, there are multiple areas that enhancements can be made, including but not limited to improving the web crawler's efficiency and adding concurrency support in terms of network's nodes sudden joins and leaves. 
-
-In the pursuit of self-improvement, any new suggestions, solutions and potential bug fixes are welcome. 
-
 
 # Architecture
 
