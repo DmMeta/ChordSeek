@@ -220,8 +220,9 @@ From the execution of the 'printnodes' command, we observe that the node with IP
 
 ### Authors:
 
-- Metaxakis Dimitris | <a href="mailto:d.metaxakis@upnet.gr">d.metaxakis@upnet.gr</a>
-- Sofotasios Argiris | <a href="mailto:up1079616@upnet.gr">up1079616@upnet.gr</a>
+- Metaxakis Dimitris | <a href="mailto:d.metaxakis@ac.upatras.gr">d.metaxakis@ac.upatras.gr</a>
+- Sofotasios Argiris | <a href="mailto:up1079616@ac.upatras.gr">up1079616@ac.upatras.gr</a>
+- Sfikas Theodore | <a href="mailto:up1072550@ac.upatras.gr">up1072550@ac.upatras.gr</a>
 
 
 # License
