@@ -230,7 +230,7 @@ From the execution of the 'printnodes' command, we observe that the node with IP
 Distributed under the [MIT] License. See `LICENSE.md` for more details.
 
 <!-- MARKDOWN LINKS & IMAGES -->
-[license-badge]: [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[license-badge]: https://img.shields.io/badge/License-MIT-blue.svg
 [license-link]: https://github.com/DmMeta/ChordSeek/blob/main/LICENSE
 [Chord-Paper-Link]: https://pdos.csail.mit.edu/papers/chord:sigcomm01/chord_sigcomm.pdf
 [CEID-link]: https://www.ceid.upatras.gr/
