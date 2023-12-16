@@ -231,7 +231,7 @@ Distributed under the [MIT] License. See `LICENSE.md` for more details.
 
 <!-- MARKDOWN LINKS & IMAGES -->
 [license-badge]: https://img.shields.io/bower/l/bootstrap
-[license-link]: https://github.com/DmMeta/ChordSeek/blob/main/LICENSE.md
+[license-link]: https://github.com/DmMeta/ChordSeek/blob/main/LICENSE
 [Chord-Paper-Link]: https://pdos.csail.mit.edu/papers/chord:sigcomm01/chord_sigcomm.pdf
 [CEID-link]: https://www.ceid.upatras.gr/
 [Docker-link]: https://www.docker.com/
