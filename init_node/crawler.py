@@ -79,7 +79,7 @@ class WebCrawler:
                 infobox = subpage.pages[scientist].resolve_redirect().text(section = "Infobox")
                 
                 parsed_info = self._parseInfobox_(infobox, self.details)
-                    #handle those with no university 
+                    # handle those with no university 
                 if len(parsed_info["education"]) == 0:
                         if "Unknown University" not in compsct_dict.keys():
                             compsct_dict["Unknown University"] = []
@@ -90,7 +90,7 @@ class WebCrawler:
                                         "Education": "Unknown University"
                                         }]   
      
-                #handle those with the found university/ies
+                # handle those with the found university/ies
                 for university in parsed_info["education"]:
                     if university not in compsct_dict.keys():
                         compsct_dict[university] = []
@@ -109,7 +109,7 @@ class WebCrawler:
     def _parseInfobox_(self, infobox, details):
     
         parsed_info = {"alma_mater":[], "education":[], "awards":[], "prizes":[]}
-        #print(infobox)
+
         reg_ex = [r"\[\[(?!(?:PhD|Ms|Bs|Bsc|\|))([A-Z][^\[\]|]*)\]\]",
                   r"\[\[(?!(?:PhD|Ms|Bs|Bsc|\|))([A-Z][^\[\]|]*)\]\]",
                   r"\[\[(.*?)\]\]", r"\[\[(.*?)\]\]"]  
@@ -117,17 +117,11 @@ class WebCrawler:
         try :
             for index, detail in enumerate(details):
                 if detail in infobox:
-                    # parameter_start = infobox.index(detail)
-                    # parameter_value_start = infobox.index("=", parameter_start) + 1
-                    
-                    # parameter_value_end = infobox.index(".", parameter_value_start)
-                    
+                
                     required_part = re.findall(f"\s*{detail}\s*=([\s\S]*?([\}}\=]))", infobox)
-                    
-                    # print(f"Infobox: {infobox}")
-                    # print(f"Required_part: {required_part}")
                     if len(list(chain(required_part))) != 0:
                         required_part = list(chain(required_part))[0][0] 
+                        
                     else: required_part = ""
                     
                     
@@ -160,4 +154,5 @@ if __name__ == "__main__":
 
     with open(os.path.join('./','scientists.json'), 'w', encoding='utf-8') as file:
         json.dump(dictionary, file, indent = 3)
+        
     # print(len(test.scientists),test.scientists[:30])

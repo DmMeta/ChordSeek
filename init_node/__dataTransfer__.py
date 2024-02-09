@@ -17,22 +17,9 @@ class DataTransfer:
      
      self.logger = logging.getLogger(__name__)
      logging.basicConfig(level=logging.WARNING)
-    #  self.netname = os.environ.get(config_file['chord']['network_var'])
-    #  self.container_id = os.environ.get(config_file['chord']['container_var'])
      self.network = network
      self.scientists = data
-    #  try:
-    #     with open(os.path.join("./init_node/scientists.json"), "r", encoding="utf-8") as scientist_file:
-    #         self.scientists = json.load(scientist_file)
-        
-    #  except FileNotFoundError as e:
-    #      self.logger.error(f"Scientists.json file not found in {os.path.join('./init_node')}.\n Stack Trace: {e}")
-    #  except json.JSONDecodeError as e:
-    #      self.logger.error(f"Scientists.json file is not a valid JSON file. Error decoding the file.\n Stack Trace: {e}")
-    #  except Exception as e:
-    #      self.logger.error(f"Unexpected file error occured!\nStack Trace: {e}")
-    #      self.scientists = {}
-
+   
     def transmitData(self, hash_fun):
         print(len(self.scientists.keys())) 
 

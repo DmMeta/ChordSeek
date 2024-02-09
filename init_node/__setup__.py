@@ -24,7 +24,7 @@ class ChordInitialization:
     '''
 
     def __init__(self, config_file):
-        #These probably should change. Applying the change.
+
         self.netname = os.environ.get(config_file['chord']['network_var'])
         try:
             client = docker.from_env()
@@ -33,7 +33,7 @@ class ChordInitialization:
             self.container_id = client.containers.get(os.environ.get(config_file['chord']['container_var'])).id
         except docker.errors.APIError as e:
              print(f"Failed to get container id for init_node")
-        # self.nodes = int(os.environ.get(config_file['chord']['replicas_var']))
+    
 
         self.network = self._dnet_inspect()
         self.active_chord = list()
@@ -52,7 +52,7 @@ class ChordInitialization:
 
         except docker.errors.APIError as e:
             print(f"The {self.netname} docker network wasn't found. Critical failure...")
-            #return a sorted (ip address) list of nodes
+            # return a sorted (ip address) list of nodes
         return sorted(network, key = lambda x: int(x[1].split(".")[3]))
 
     def initialize(self):
@@ -86,8 +86,6 @@ class ChordInitialization:
 
             
        
-
-        
 if __name__ == "__main__":
     with open(os.path.join('./init_node','config.yml'), 'r') as config:
                 config_file = yaml.load(config, Loader = yaml.FullLoader)
@@ -98,10 +96,6 @@ if __name__ == "__main__":
         print(el)
     
 
-#print(chinit.netname, chinit.container_id,chinit.network,chinit.nodes)
-# print(type(chinit.network))
-# for el in chinit.network:
-#     print(el)
 
 
 

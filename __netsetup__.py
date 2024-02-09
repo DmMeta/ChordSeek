@@ -36,10 +36,10 @@ def setup_docker_net(client, chordname: str, networkOptions: dict):
 
         
         if len(docker_network) > 0:
-            #print(f"Network: {chordname} already exists. Proceeding...")
+            # print(f"Network: {chordname} already exists. Proceeding...")
             return docker_network[0]
     
-        #print(f"Network: {chordname} does not exist. Creating...")
+        # print(f"Network: {chordname} does not exist. Creating...")
         ipam_pool = docker.types.IPAMPool(
             subnet = networkOptions['subnet'],
             gateway =  networkOptions['gateway'],
@@ -84,10 +84,10 @@ def setup_docker_volumes(client,volumes,paths):
 
         for volume,path in zip(volumes,paths):
             if volume in map(lambda vol: vol.name,docker_volumes):
-                 #print(f"Volume: {volume} already exists. Proceeding...")
+                 # print(f"Volume: {volume} already exists. Proceeding...")
                  pass
             else:
-                #print(f"Volume: {volume} wasn't found. Creating...")
+                # print(f"Volume: {volume} wasn't found. Creating...")
                 client.volumes.create(name = volume, 
                                       driver = "local",
                                       driver_opts = {"type":"none", 
@@ -135,15 +135,15 @@ def setup_network()-> None:
     
     setup_docker_volumes(client, project_config['volumes']['names'], project_config['volumes']['paths'])
 
-    #print(f"Compiling protobuffer. Proceeding...")
+    # print(f"Compiling protobuffer. Proceeding...")
 
 
     try:
         
         generated_stubs_path = os.path.join(os.getcwd(), project_config['protobuffer']['path'], "generated")
         if not os.path.exists(generated_stubs_path):
-            #print(f"Generating stubs in {generated_stubs_path}")
-            os.makedirs(generated_stubs_path) #TODO: fix cwd()
+            # print(f"Generating stubs in {generated_stubs_path}")
+            os.makedirs(generated_stubs_path) 
         
 
             protoc.main(
@@ -167,8 +167,8 @@ def setup_network()-> None:
         
         else:
             pass
-            #print(f"Protobuffer is already compiled and stubs are present in {generated_stubs_path}")
-        #print(chord_network.containers)
+            # print(f"Protobuffer is already compiled and stubs are present in {generated_stubs_path}")
+        # print(chord_network.containers)
 
         env_variables_size = len(project_config['compose']['variables'])
         for index, (key,val) in enumerate(project_config['compose']['variables'].items()):

@@ -132,7 +132,7 @@ class chordDb:
           return True
         except sqlite3.Error as error:
             self.logger.error(f"Error while storing data: {error}")
-            self.connection.rollback() #rollbacks the transaction if an error occurs.
+            self.connection.rollback() # rollbacks the transaction if an error occurs.
             return False
         except Exception as e:
             self.logger.error(f"Error while storing data: {e}")
@@ -200,7 +200,7 @@ class chordDb:
         
         '''
         
-        if threshold is None: #eq the node leaves
+        if threshold is None: # eq the node leaves
             try:
                 print(f"Fetching data from database...")
                 self.cursor.execute("SELECT surname, education, awards, hash_value FROM data_records")
@@ -228,7 +228,7 @@ class chordDb:
             except Exception as e:
                 self.logger.error(f"Error while fetching and deleting data: {e}")
                 return []
-        else: #eq a new node joins(new predecessor of current node)
+        else: # eq a new node joins(new predecessor of current node)
             try:
                 print(f"Fetching data from database...")
                 self.cursor.execute("SELECT surname, education, awards, hash_value FROM data_records where hash_value <= ?", (threshold,))

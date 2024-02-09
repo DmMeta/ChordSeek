@@ -65,22 +65,7 @@ def main():
 
         print(f"Initilization of the chord network was successful.")
 
-        # test_arb_node = chord.active_chord[randint(0, len(chord.active_chord) - 1)]
-        # for i in range(len(chord.network)):
-         
-        #   test_new_node = chord.network.pop()
-        #   print(f"Joining node is: {test_new_node}\nArbitary node is: {test_arb_node}")
-        #   channel = grpc.insecure_channel(test_new_node[1]+":50051")
-        #   client = ChordStub(channel)
-        #   test = client.join(JoinRequest(ip_addr = test_arb_node[1], transfer_data = True))
-        #   chord.active_chord.append(test_new_node)
-        #   print(test)
-        
-        # channel = grpc.insecure_channel("10.0.0.6:50051")
-        # client = ChordStub(channel)
-        # test = client.leave(google_pb_empty.Empty())
-        # print(test)
-  
+      
     except Exception as e:
         print(f"Error occured at Initilization: {e}")
 

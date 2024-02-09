@@ -1,6 +1,4 @@
 syntax = "proto3";
-
-//TODO: search the import
 package chordprot;
 
 import "google/protobuf/empty.proto";
@@ -33,7 +31,7 @@ message FixFingerRequest {
     uint32 index = 3;
 }
 
-//only for setPredecessor
+// only for setPredecessor
 message setPredecessorRequest {
     string ip_addr = 1;
 }
@@ -76,7 +74,7 @@ message DataTransferRequest {
 
 message RangeQueryRequest {
     string university = 1;
-    optional uint32 max_awards = 2; //maybe min_awards?
+    optional uint32 max_awards = 2;
 }
 
 

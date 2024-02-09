@@ -116,7 +116,7 @@ def benchmark_wrapper(option, reps):
         
         
         
-        #point to potentially gather hops during initialization of the chord network
+        # potential gather
         for _, node_ip in network:
             with grpc.insecure_channel(f"{node_ip}"+":50051") as channel:
                 client = ChordStub(channel)
