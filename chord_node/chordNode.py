@@ -940,9 +940,6 @@ class ChordNode(chordprot_pb2_grpc.ChordServicer, chordprot_pb2_grpc.DataTransfe
       return self.stub
 
   
-
-# def print_fun(signum, frame) -> None:
-#     print(f"The final version of node's {node.ip_addr}(Hash value: {node._own_key()} | Predecessor: {node.predecessor}) Finger Table(FT) is: \n{node.FT}\nHops: {node.hopCounter.hops}")
     
 if __name__ == '__main__':
     node = ChordNode()  
@@ -951,8 +948,6 @@ if __name__ == '__main__':
     for el in node.FT.FT:
          print(el)
     print("-----\n-----")
-    # signal.signal(signal.SIGUSR1, print_fun)
-    # printing_ft_process = Process(target = print_fun) 
     node.serve() 
             
 
