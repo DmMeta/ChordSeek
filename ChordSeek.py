@@ -44,7 +44,7 @@ def lookup(university: str, awards: int):
             raise ValueError
         console = Console() 
         key_value = hash(university)
-        network = _dnet_inspect() #TODO: maybe we want active_chord, not network. 
+        network = _dnet_inspect() 
         arbitary_node = network[randint(0, len(network) - 1)]
         chordprot_pb2 = import_module(".chordprot_pb2", package = "protobufs.generated")
         chordprot_pb2_grpc = import_module(".chordprot_pb2_grpc", package = "protobufs.generated")
@@ -346,9 +346,6 @@ def printNodes():
     console.print(table)
 
     
-    
-    
-    
 
 def hash(data, modulus = project_config['compose']['variables']['IDENT_SPACE_EXP']) -> int:
         '''
@@ -387,20 +384,6 @@ def _dnet_inspect():
            
         return sorted(network, key = lambda x: int(x[1].split(".")[3]))
         
-
-
-
-
-# def find_succ_t(nodelist, key):
-#     index = bisect_right(nodelist,key)
-    
-#     if index < len(nodelist):
-#         return index, nodelist[index]
-#     else: 
-#         return 0, nodelist[0]
-
-# assert (client.find_successor(5) == find_succ_t(nodelist,5))
-
 
 
 if __name__ == '__main__':

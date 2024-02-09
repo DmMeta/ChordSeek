@@ -15,74 +15,8 @@ from string import ascii_lowercase
 from random import choices, randint
 from importlib import import_module
 from math import log2
-from concurrent import futures
-import requests
-from bs4 import BeautifulSoup
 from time import sleep
 
-# def lookup_wrapper(args):
-#     t1, t2, random_node,ChordStub,Empty = args
-    
-#     with grpc.insecure_channel(f"{random_node[1]}:50051") as channel:
-#         client = ChordStub(channel)
-#         hops_response = client.clear_hops(Empty.Empty())
-#         return hops_response.num_hops
-    
-
-# def benchmark_lookup(network,ChordStub,id_space_exp,Empty):
-
-#     hops = list()
-
-#     def generate_random_input():
-#       random_node = network[randint(0, len(network)-1)]
-#       random_text = "".join(choices(ascii_lowercase, k = 5))
-#       random_uint = randint(0, 12)
-#       return random_text, random_uint, random_node,ChordStub,Empty
-
-    
-#     passed_args = [generate_random_input() for _ in range(1000)]
-
-#     with futures.ProcessPoolExecutor(max_workers = 4) as executor:
-#         results = list(executor.map(lookup_wrapper, passed_args))
-    
-#     hops.extend(results)
-
-#     bad_cases = list(filter(lambda hops: hops > log2(id_space_exp), hops))
-#     average_cases_cnt = len(hops) - len(bad_cases)
-#     if len(bad_cases) != 0:
-#         print(f"Out of 1000000 lookups we got {len(bad_cases)} averaging at {(1/len(bad_cases))*sum(bad_cases)} \
-#     and {average_cases_cnt} average cases.")
-#     else: 
-#         print(f"We got {average_cases_cnt} average_cases (O(logn) lookup time) and {len(bad_cases)}")
-            
-
-# def get_random_universities(reps):
-
-
-#     url = f"https://www.randomlists.com/random-colleges?dup=false&qty={reps}"
-
-#     # Make a request to the page
-#     response = requests.get(url)
-
-#     # Check if the request was successful (status code 200)
-#     if response.status_code == 200:
-#         # Parse the HTML content of the page
-#         soup = BeautifulSoup(response.text, 'html.parser')
-
-#         university_list = soup.find_all('div', class_ = "Rand-stage")
-#         print(type(university_list))
-#         for el in university_list:
-#             print(f"{el.text}")
-#         # if university_list:
-#         #     # Extract the list of universities
-#         #     universities = university_list.find('li')
-
-#         #     # Print the random universities
-#         #     for index, university in enumerate(universities, start=1):
-#         #         print(f"{index}. {university.get_text().strip()}")
-
-#     else:
-#         print(f"Failed to retrieve data. Status code: {response.status_code}")
 
 
 

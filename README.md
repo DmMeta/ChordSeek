@@ -197,7 +197,7 @@ Suppose we want to find the **Finger Table(FT)** of the node with the IP address
 
 ### Executing a Key Lookup query
 We will now showcase the two following range queries:
-1. Searching for computer scientists of ***MIT** university with a total number of awards greater than or equal to 3.
+1. Searching for computer scientists of **MIT** university with a total number of awards greater than or equal to 3.
 ![](./images_media/lookup1.gif)
 
 2. Searching for computer scientists of University of **Cambridge** with a total number of awards greater than or equal to 3.
