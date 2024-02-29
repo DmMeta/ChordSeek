@@ -85,12 +85,12 @@ Concerning the implementation of the communication between the nodes, we've foll
 As far as storage is concerned, each node maintains a SQLite3 database for data persistency.
 
 <h3 style="display:flex;justify-content:center;align-items:center;"> A Typical Representation of Chord Network Total Architecture</h3>
-<figure markdown="1" style="display:flex;flex-direction:column;align-items:center;padding:1px;">
-<img src="./images_media/chord_arch.png" alt="Architecture of Chord Network" style="width:100%">
-<figcaption style="text-align:center;"><i>Figure 1</i></figcaption>
-</figure>
-
-
+<p align="center">
+ <img src="./images_media/chord_arch.png" alt="Architecture of Chord Network" style="width:80%">
+    <br>
+    <em><i>Figure 1</i></em>
+</p>
+<br>
 
 # Methodology and Results
 
@@ -133,10 +133,12 @@ In a nutshell:
 ### Key Lookup
 
 For the evaluation of the overall performance of the Chord lookup key operation, we achieved the following results:
-<figure markdown="1" style="display:flex;align-items:center;flex-direction:column;padding:2vh;">
-<img src="./images_media/lookup_results.png"  alt="Lookup Results Graph" >
-<figcaption style="text-align:center;"><i>Figure 2</i></figcaption>
-</figure>
+<br>
+<p align="center">
+ <img src="./images_media/lookup_results.png"  alt="Lookup Results Graph" width = 80%>
+    <br>
+    <em><i>Figure 2</i></em>
+</p>
 
 The results yielded the observation that the average number of hops per lookup is O(***logN***), where N is the number of nodes in the network. This observation validates the claim made in the original paper, supporting the efficiency of the Chord protocol in minimizing the traversal distance during key retrieval in large-scale networks. <br>
 > [!WARNING]  
@@ -145,21 +147,24 @@ The results yielded the observation that the average number of hops per lookup i
 ### Node Joining
 
 For the evaluation of the overall performance of the Chord join operation, we achieved the following results:
-<figure markdown="1" style="display:flex;align-items:center;flex-direction:column;padding:2vh;">
-<img src="./images_media/join_results.png"  alt="Join Results Graph" >
-<figcaption style="text-align:center;"><i>Figure 3</i></figcaption>
-</figure>
+<br>
+<p align="center">
+ <img src="./images_media/join_results.png"  alt="Join Results Graph" width = 80%>
+    <br>
+    <em><i>Figure 3</i></em>
+</p>
 
 From the results obtained, we observe that for networks with a number of nodes equal or greater than 32, the total number of messages required to re-establish the Chord routing invariants and finger tables is on the order of O(***(logN)^2)***, where N is the number of nodes in the network. This observation validates the corresponding claim made in the original paper for the operation of node joining.
 
 ### Node Leave
 
 In order to evaluate the overall performance of the Chord leave operation, we achieved the following results:
-
-<figure markdown="1" style="display:flex;align-items:center;flex-direction:column;padding:2vh;">
-<img src="./images_media/leave_results.png"  alt="Leave Results Graph" >
-<figcaption style="text-align:center;"><i>Figure 4</i></figcaption>
-</figure>
+<br>
+<p align="center">
+ <img src="./images_media/leave_results.png"  alt="Leave Results Graph" width = 80%>
+    <br>
+    <em><i>Figure 4</i></em>
+</p>
 
 In a similar vein to the join operation, our findings for the leave operation, derived from networks with a node count equal to or greater than 32, indicate that the total number of messages required to re-establish Chord routing invariants and finger tables follows the order of O((***logN)^2***), where N represents the number of nodes in the network. This parallel observation aligns with the corresponding claim in the original paper, demonstrating consistency in the efficiency of Chord protocol operations, both in node **joining** and **leaving** scenarios.
 
