@@ -83,10 +83,9 @@ Concerning the implementation of the communication between the nodes, we've foll
 ### Storage
 
 As far as storage is concerned, each node maintains a SQLite3 database for data persistency.
-
-<h3 style="display:flex;justify-content:center;align-items:center;"> A Typical Representation of Chord Network Total Architecture</h3>
 <p align="center">
- <img src="./images_media/chord_arch.png" alt="Architecture of Chord Network" style="width:80%">
+<h3> A Typical Representation of Chord Network Total Architecture</h3>
+ <img src="./images_media/chord_arch.png" alt="Architecture of Chord Network" style="width:100%">
     <br>
     <em><i>Figure 1</i></em>
 </p>
